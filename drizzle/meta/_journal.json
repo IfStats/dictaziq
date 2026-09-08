@@ -15,6 +15,41 @@
       "when": 1788867234803,
       "tag": "0001_classy_justin_hammer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788868378818,
+      "tag": "0002_wise_toxin",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788882103164,
+      "tag": "0003_new_abomination",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788882907913,
+      "tag": "0004_low_venus",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788885039443,
+      "tag": "0005_easy_owl",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788889835708,
+      "tag": "0006_tricky_otto_octavius",
+      "breakpoints": true
     }
   ]
 }

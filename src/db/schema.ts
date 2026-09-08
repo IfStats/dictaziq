@@ -338,3 +338,356 @@ export const predictions = pgTable(
     ),
   ],
 );
+
+export const resultSnapshots = pgTable(
+  "result_snapshots",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    fixtureId: uuid("fixture_id")
+      .notNull()
+      .references(() => fixtures.id, { onDelete: "restrict" }),
+
+    // A stable identifier for this observation, reused on ingestion retries.
+    observationKey: text("observation_key").notNull(),
+
+    isDemo: boolean("is_demo").notNull(),
+
+    status: fixtureStatus("status").notNull(),
+
+    regulationHomeScore: integer("regulation_home_score"),
+    regulationAwayScore: integer("regulation_away_score"),
+
+    regulationConfirmed: boolean("regulation_confirmed")
+      .notNull()
+      .default(false),
+
+    // Only populated when the source supplies a reliable finish time.
+    finishedAt: timestamp("finished_at", {
+      withTimezone: true,
+    }),
+
+    // The provider's timestamp is distinct from our observation time.
+    providerUpdatedAt: timestamp("provider_updated_at", {
+      withTimezone: true,
+    }),
+
+    // Assigned by the database trigger, never backdated by the importer.
+    observedAt: timestamp("observed_at", {
+      withTimezone: true,
+    }).notNull().defaultNow(),
+
+    // Source evidence and team/competition context for this observation.
+    evidence: jsonb("evidence")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("result_snapshots_observation_identity").on(
+      table.fixtureId,
+      table.observationKey,
+    ),
+
+    index("result_snapshots_fixture_observed").on(
+      table.fixtureId,
+      table.observedAt,
+    ),
+
+    check(
+      "result_snapshots_observation_key_nonempty",
+      sql`length(trim(${table.observationKey})) > 0`,
+    ),
+
+    check(
+      "result_snapshots_evidence_object",
+      sql`jsonb_typeof(${table.evidence}) = 'object'`,
+    ),
+
+    check(
+      "result_snapshots_nonnegative_scores",
+      sql`
+        (
+          ${table.regulationHomeScore} IS NULL
+          OR ${table.regulationHomeScore} >= 0
+        )
+        AND (
+          ${table.regulationAwayScore} IS NULL
+          OR ${table.regulationAwayScore} >= 0
+        )
+      `,
+    ),
+
+    check(
+      "result_snapshots_confirmed_scores",
+      sql`
+        NOT ${table.regulationConfirmed}
+        OR (
+          ${table.regulationHomeScore} IS NOT NULL
+          AND ${table.regulationAwayScore} IS NOT NULL
+        )
+      `,
+    ),
+
+    check(
+      "result_snapshots_finish_before_observation",
+      sql`
+        ${table.finishedAt} IS NULL
+        OR ${table.finishedAt} <= ${table.observedAt}
+      `,
+    ),
+  ],
+);
+
+export const predictionOutcomes = pgTable(
+  "prediction_outcomes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    predictionId: uuid("prediction_id")
+      .notNull()
+      .references(() => predictions.id, { onDelete: "restrict" }),
+
+    resultSnapshotId: uuid("result_snapshot_id")
+      .notNull()
+      .references(() => resultSnapshots.id, { onDelete: "restrict" }),
+
+    market: text("market").notNull(),
+    selection: text("selection").notNull(),
+
+    // Pending predictions have no settlement for the current result snapshot.
+    outcome: text("outcome").notNull(),
+
+    rulesVersion: text("rules_version").notNull(),
+
+    settledAt: timestamp("settled_at", {
+      withTimezone: true,
+    }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("prediction_outcomes_settlement_identity").on(
+      table.predictionId,
+      table.market,
+      table.selection,
+    ),
+
+    check(
+      "prediction_outcomes_valid_outcome",
+      sql`${table.outcome} IN ('won', 'lost', 'void')`,
+    ),
+
+    check(
+      "prediction_outcomes_nonempty_fields",
+      sql`
+        length(trim(${table.market})) > 0
+        AND length(trim(${table.selection})) > 0
+        AND length(trim(${table.rulesVersion})) > 0
+      `,
+    ),
+  ],
+);
+
+export const teamRatingSnapshots = pgTable(
+  "team_rating_snapshots",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "restrict" }),
+
+    // e.g. footballdatabase.com or footballdatabase.eu
+    source: text("source").notNull(),
+
+    // Optional source-specific team identifier.
+    sourceTeamId: text("source_team_id"),
+
+    // Rating publication/effective date supplied by the source.
+    snapshotDate: date("snapshot_date").notNull(),
+
+    rating: integer("rating").notNull(),
+
+    // Global/source ranking position if supplied.
+    rankingPosition: integer("ranking_position"),
+
+    isDemo: boolean("is_demo").notNull(),
+
+    // Database-stamped observation time; callers must not backdate it.
+    observedAt: timestamp("observed_at", {
+      withTimezone: true,
+    }).notNull().defaultNow(),
+
+    // Preserve the raw/source context used to create this snapshot.
+    evidence: jsonb("evidence")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("team_rating_snapshots_identity").on(
+      table.teamId,
+      table.source,
+      table.snapshotDate,
+    ),
+
+    index("team_rating_snapshots_source_date").on(
+      table.source,
+      table.snapshotDate,
+    ),
+
+    index("team_rating_snapshots_team_date").on(
+      table.teamId,
+      table.snapshotDate,
+    ),
+
+    check(
+      "team_rating_snapshots_source_nonempty",
+      sql`length(trim(${table.source})) > 0`,
+    ),
+
+    check(
+      "team_rating_snapshots_rating_nonnegative",
+      sql`${table.rating} >= 0`,
+    ),
+
+    check(
+      "team_rating_snapshots_ranking_positive",
+      sql`
+        ${table.rankingPosition} IS NULL
+        OR ${table.rankingPosition} > 0
+      `,
+    ),
+
+    check(
+      "team_rating_snapshots_evidence_object",
+      sql`jsonb_typeof(${table.evidence}) = 'object'`,
+    ),
+  ],
+);
+
+export const contextEvidenceSnapshots = pgTable(
+  "context_evidence_snapshots",
+  {
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    fixtureId: uuid("fixture_id")
+      .notNull()
+      .references(
+        () => fixtures.id,
+        { onDelete: "restrict" },
+      ),
+
+    kind: text("kind")
+      .notNull(),
+
+    side: text("side")
+      .notNull(),
+
+    description: text("description")
+      .notNull(),
+
+    source: text("source")
+      .notNull(),
+
+    sourceEvidenceId:
+      text("source_evidence_id"),
+
+    evidenceSha256:
+      text("evidence_sha256")
+        .notNull(),
+
+    isDemo: boolean("is_demo")
+      .notNull(),
+
+    /*
+     * When the underlying information was known/observed.
+     */
+    observedAt: timestamp(
+      "observed_at",
+      {
+        withTimezone: true,
+        mode: "date",
+      },
+    ).notNull(),
+
+    /*
+     * Database-stamped ingestion time.
+     */
+    capturedAt: timestamp(
+      "captured_at",
+      {
+        withTimezone: true,
+        mode: "date",
+      },
+    )
+      .defaultNow()
+      .notNull(),
+
+    evidence: jsonb("evidence")
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex(
+      "context_evidence_fixture_hash_unique",
+    ).on(
+      table.fixtureId,
+      table.evidenceSha256,
+    ),
+
+    index(
+      "context_evidence_fixture_observed_idx",
+    ).on(
+      table.fixtureId,
+      table.observedAt,
+    ),
+
+    index(
+      "context_evidence_source_idx",
+    ).on(
+      table.source,
+    ),
+
+    check(
+      "context_evidence_kind_check",
+      sql`${table.kind} IN (
+        'recent_form',
+        'home_away_form',
+        'squad_availability',
+        'rest_schedule',
+        'competition_position',
+        'head_to_head',
+        'tactical_matchup',
+        'other_verified'
+      )`,
+    ),
+
+    check(
+      "context_evidence_side_check",
+      sql`${table.side} IN (
+        'home',
+        'away',
+        'neutral'
+      )`,
+    ),
+
+    check(
+      "context_evidence_description_check",
+      sql`length(trim(${table.description})) > 0`,
+    ),
+
+    check(
+      "context_evidence_source_check",
+      sql`length(trim(${table.source})) > 0`,
+    ),
+
+    check(
+      "context_evidence_sha_check",
+      sql`length(${table.evidenceSha256}) = 64`,
+    ),
+
+    check(
+      "context_evidence_object_check",
+      sql`jsonb_typeof(${table.evidence}) = 'object'`,
+    ),
+  ],
+);

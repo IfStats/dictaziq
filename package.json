@@ -12,7 +12,24 @@
     "db:migrate": "drizzle-kit migrate",
     "db:check": "tsx scripts/check-db.ts",
     "demo:import": "tsx scripts/import-demo.ts",
-    "test:prediction-guards": "tsx scripts/test-prediction-guards.ts"
+    "test:prediction-guards": "tsx scripts/test-prediction-guards.ts",
+    "demo:history": "tsx scripts/seed-demo-history.ts",
+    "demo:predict": "tsx scripts/generate-demo-prediction.ts",
+    "test:rating-gap": "tsx scripts/test-rating-gap-model.ts",
+    "demo:rating-gap": "tsx scripts/run-demo-rating-gap.ts",
+    "demo:rating-gap-predict": "tsx scripts/generate-demo-rating-gap-prediction.ts",
+    "demo:publish": "tsx scripts/publish-demo-predictions.ts",
+    "demo:result": "tsx scripts/import-demo-result.ts",
+    "test:settlement": "tsx scripts/test-settlement.ts",
+    "demo:settle": "tsx scripts/settle-demo-predictions.ts",
+    "test:context": "tsx scripts/test-context-analysis.ts",
+    "test:prematch": "tsx scripts/test-prematch-decision.ts",
+    "verify:context-schema": "tsx scripts/verify-context-evidence-schema.ts",
+    "demo:context": "tsx scripts/import-demo-context.ts",
+    "demo:prematch-context": "tsx scripts/run-demo-context-prematch.ts",
+    "demo:context-predict": "tsx scripts/generate-demo-context-prediction.ts",
+    "test:llm-analysis": "tsx scripts/test-llm-analysis.ts",
+    "demo:llm": "tsx scripts/run-demo-llm-analysis.ts"
   },
   "dependencies": {
     "@neon/config": "^1.3.1",
@@ -22,6 +39,7 @@
     "dotenv": "17.4.2",
     "drizzle-orm": "0.45.2",
     "next": "16.3.4",
+    "openai": "^7.10.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "0.0.1"
