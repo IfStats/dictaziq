@@ -2,6 +2,9 @@ import {
   API_FOOTBALL_SOURCE,
   type ApiFootballFixturePage,
   type NormalizedApiFootballFixture,
+  type ApiFootballFixtureLineup,
+  type ApiFootballInjury,
+  type ApiFootballLineupPlayer,
 } from "./types";
 
 const BASE_URL =
@@ -473,4 +476,432 @@ export async function fetchFixturesByDate(
 
     fixtures,
   };
+}
+
+async function fetchApiFootballArray(
+  pathname: string,
+  parameters:
+    Record<string, string>,
+): Promise<unknown[]> {
+  const url =
+    new URL(
+      `${BASE_URL}${pathname}`,
+    );
+
+  for (
+    const [
+      key,
+      value,
+    ]
+    of Object.entries(
+      parameters,
+    )
+  ) {
+    url.searchParams.set(
+      key,
+      value,
+    );
+  }
+
+  const response =
+    await fetch(
+      url,
+      {
+        method:
+          "GET",
+
+        headers: {
+          Accept:
+            "application/json",
+
+          "x-apisports-key":
+            apiKey(),
+        },
+
+        signal:
+          AbortSignal.timeout(
+            20_000,
+          ),
+      },
+    );
+
+  if (!response.ok) {
+    throw new Error(
+      `API-Football request failed: HTTP ${response.status}.`,
+    );
+  }
+
+  const payload: unknown =
+    await response.json();
+
+  const root =
+    record(
+      payload,
+      "API-Football response",
+    );
+
+  if (
+    isRecord(
+      root.errors,
+    ) &&
+    Object.keys(
+      root.errors,
+    ).length > 0
+  ) {
+    throw new Error(
+      `API-Football returned errors: ${JSON.stringify(
+        root.errors,
+      )}`,
+    );
+  }
+
+  if (
+    !Array.isArray(
+      root.response,
+    )
+  ) {
+    throw new Error(
+      "API-Football response array is missing.",
+    );
+  }
+
+  return root.response;
+}
+
+function normalizeLineupPlayer(
+  value: unknown,
+): ApiFootballLineupPlayer {
+  const item =
+    record(
+      value,
+      "lineup player item",
+    );
+
+  const player =
+    record(
+      item.player,
+      "lineup player",
+    );
+
+  return {
+    id:
+      nullableNumber(
+        player.id,
+      ),
+
+    name:
+      stringValue(
+        player.name,
+        "lineup player.name",
+      ),
+
+    number:
+      nullableNumber(
+        player.number,
+      ),
+
+    position:
+      nullableString(
+        player.pos,
+      ),
+
+    grid:
+      nullableString(
+        player.grid,
+      ),
+  };
+}
+
+function normalizeLineup(
+  raw: unknown,
+  fixtureId: number,
+): ApiFootballFixtureLineup {
+  const item =
+    record(
+      raw,
+      "lineup item",
+    );
+
+  const team =
+    record(
+      item.team,
+      "lineup team",
+    );
+
+  const startXI =
+    Array.isArray(
+      item.startXI,
+    )
+      ? item.startXI.map(
+          normalizeLineupPlayer,
+        )
+      : [];
+
+  const substitutes =
+    Array.isArray(
+      item.substitutes,
+    )
+      ? item.substitutes.map(
+          normalizeLineupPlayer,
+        )
+      : [];
+
+  return {
+    source:
+      API_FOOTBALL_SOURCE,
+
+    fixtureId,
+
+    team: {
+      id:
+        numberValue(
+          team.id,
+          "lineup team.id",
+        ),
+
+      name:
+        stringValue(
+          team.name,
+          "lineup team.name",
+        ),
+    },
+
+    formation:
+      nullableString(
+        item.formation,
+      ),
+
+    startXI,
+
+    substitutes,
+  };
+}
+
+export async function fetchFixtureLineups(
+  fixtureId: number,
+): Promise<
+  ApiFootballFixtureLineup[]
+> {
+  if (
+    !Number.isInteger(
+      fixtureId,
+    ) ||
+    fixtureId <= 0
+  ) {
+    throw new Error(
+      "Fixture ID must be a positive integer.",
+    );
+  }
+
+  const response =
+    await fetchApiFootballArray(
+      "/fixtures/lineups",
+      {
+        fixture:
+          String(
+            fixtureId,
+          ),
+      },
+    );
+
+  return response.map(
+    (item) =>
+      normalizeLineup(
+        item,
+        fixtureId,
+      ),
+  );
+}
+
+function normalizeInjury(
+  raw: unknown,
+  expectedFixtureId: number,
+): ApiFootballInjury {
+  const item =
+    record(
+      raw,
+      "injury item",
+    );
+
+  const fixture =
+    record(
+      item.fixture,
+      "injury fixture",
+    );
+
+  const fixtureId =
+    numberValue(
+      fixture.id,
+      "injury fixture.id",
+    );
+
+  if (
+    fixtureId !==
+    expectedFixtureId
+  ) {
+    throw new Error(
+      "API-Football injury belongs to a different fixture.",
+    );
+  }
+
+  const team =
+    record(
+      item.team,
+      "injury team",
+    );
+
+  const player =
+    record(
+      item.player,
+      "injury player",
+    );
+
+  return {
+    source:
+      API_FOOTBALL_SOURCE,
+
+    fixtureId,
+
+    team: {
+      id:
+        numberValue(
+          team.id,
+          "injury team.id",
+        ),
+
+      name:
+        stringValue(
+          team.name,
+          "injury team.name",
+        ),
+    },
+
+    player: {
+      id:
+        nullableNumber(
+          player.id,
+        ),
+
+      name:
+        stringValue(
+          player.name,
+          "injury player.name",
+        ),
+    },
+
+    type:
+      nullableString(
+        player.type,
+      ),
+
+    reason:
+      nullableString(
+        player.reason,
+      ),
+  };
+}
+
+export async function fetchFixtureInjuries(
+  fixtureId: number,
+): Promise<
+  ApiFootballInjury[]
+> {
+  if (
+    !Number.isInteger(
+      fixtureId,
+    ) ||
+    fixtureId <= 0
+  ) {
+    throw new Error(
+      "Fixture ID must be a positive integer.",
+    );
+  }
+
+  const response =
+    await fetchApiFootballArray(
+      "/injuries",
+      {
+        fixture:
+          String(
+            fixtureId,
+          ),
+      },
+    );
+
+  const normalized =
+  response.map(
+    (item) =>
+      normalizeInjury(
+        item,
+        fixtureId,
+      ),
+  );
+
+return deduplicateFixtureInjuries(
+  normalized,
+);
+}
+
+function injuryIdentity(
+  injury:
+    ApiFootballInjury,
+): string {
+  return [
+    injury.fixtureId,
+
+    injury.team.id,
+
+    injury.player.id ??
+      injury.player.name
+        .trim()
+        .toLowerCase(),
+
+    injury.type
+      ?.trim()
+      .toLowerCase() ??
+      "",
+
+    injury.reason
+      ?.trim()
+      .toLowerCase() ??
+      "",
+  ].join(
+    "|",
+  );
+}
+
+export function deduplicateFixtureInjuries(
+  injuries:
+    ApiFootballInjury[],
+): ApiFootballInjury[] {
+  const unique =
+    new Map<
+      string,
+      ApiFootballInjury
+    >();
+
+  for (
+    const injury
+    of injuries
+  ) {
+    const identity =
+      injuryIdentity(
+        injury,
+      );
+
+    if (
+      !unique.has(
+        identity,
+      )
+    ) {
+      unique.set(
+        identity,
+        injury,
+      );
+    }
+  }
+
+  return [
+    ...unique.values(),
+  ];
 }

@@ -52,3 +52,55 @@ export type ApiFootballFixturePage = {
   results: number;
   fixtures: NormalizedApiFootballFixture[];
 };
+
+export type ApiFootballLineupPlayer = {
+  id: number | null;
+  name: string;
+  number: number | null;
+  position: string | null;
+  grid: string | null;
+};
+
+export type ApiFootballFixtureLineup = {
+  source:
+    typeof API_FOOTBALL_SOURCE;
+
+  fixtureId: number;
+
+  team: {
+    id: number;
+    name: string;
+  };
+
+  formation:
+    string | null;
+
+  startXI:
+    ApiFootballLineupPlayer[];
+
+  substitutes:
+    ApiFootballLineupPlayer[];
+};
+
+export type ApiFootballInjury = {
+  source:
+    typeof API_FOOTBALL_SOURCE;
+
+  fixtureId: number;
+
+  team: {
+    id: number;
+    name: string;
+  };
+
+  player: {
+    id: number | null;
+    name: string;
+  };
+
+  type:
+    string | null;
+
+  reason:
+    string | null;
+};

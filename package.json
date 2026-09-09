@@ -50,7 +50,10 @@
     "test:goals-btts-v0.2": "tsx scripts/test-goals-btts-v0.2.ts",
     "verify:market-evidence-schema": "tsx scripts/verify-market-evidence-schema.ts",
     "test:market-evidence-persistence": "tsx scripts/test-market-evidence-persistence.ts",
-    "predict:real-markets-v0.1": "tsx scripts/generate-real-market-predictions-v0.1.ts"
+    "predict:real-markets-v0.1": "tsx scripts/generate-real-market-predictions-v0.1.ts",
+    "probe:context": "tsx scripts/probe-api-football-context.ts",
+    "test:injury-dedupe": "tsx scripts/test-api-football-injury-dedupe.ts",
+    "ingest:squad-context": "tsx scripts/ingest-real-squad-context.ts"
   },
   "dependencies": {
     "@neon/config": "^1.3.1",
