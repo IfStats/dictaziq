@@ -19,6 +19,10 @@ import {
 } from "../src/lib/predictions/goals-btts-engine-v0.2";
 
 import {
+  persistAndReloadMarketEvidence,
+} from "../src/lib/predictions/market-evidence-persistence";
+
+import {
   buildFootballDataMarketEvidence,
   MarketEvidenceUnavailableError,
 } from "../src/lib/predictions/football-data-market-evidence";
@@ -321,6 +325,43 @@ async function main() {
 
       throw error;
     }
+
+        /*
+     * Persist the validated pre-match evidence
+     * before any market decision is calculated.
+     *
+     * Replace the transient object with the
+     * exact JSON reloaded from PostgreSQL.
+     */
+    const persisted =
+      await persistAndReloadMarketEvidence({
+        evidence,
+
+        source:
+          HISTORY_SOURCE,
+
+        isDemo:
+          false,
+      });
+
+    evidence =
+      persisted.evidence;
+
+    console.log(
+      [
+        "Evidence snapshot:",
+        persisted.status
+          .toUpperCase(),
+
+        `id=${persisted.id}`,
+
+        `sha256=${persisted.evidenceSha256}`,
+      ].join(" "),
+    );
+
+    console.log(
+      `Captured: ${persisted.capturedAt}`,
+    );
 
     const ratingRows =
       await sql`

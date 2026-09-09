@@ -48,7 +48,8 @@
     "test:football-data-season": "tsx scripts/test-football-data-season.ts",
     "analyze:real-markets": "tsx scripts/analyze-real-goals-btts.ts",
     "test:goals-btts-v0.2": "tsx scripts/test-goals-btts-v0.2.ts",
-    "verify:market-evidence-schema": "tsx scripts/verify-market-evidence-schema.ts"
+    "verify:market-evidence-schema": "tsx scripts/verify-market-evidence-schema.ts",
+    "test:market-evidence-persistence": "tsx scripts/test-market-evidence-persistence.ts"
   },
   "dependencies": {
     "@neon/config": "^1.3.1",
