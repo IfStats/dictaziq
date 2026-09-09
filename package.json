@@ -55,7 +55,11 @@
     "test:injury-dedupe": "tsx scripts/test-api-football-injury-dedupe.ts",
     "ingest:squad-context": "tsx scripts/ingest-real-squad-context.ts",
     "test:player-impact": "tsx scripts/test-player-impact.ts",
-    "probe:player-usage": "tsx scripts/probe-player-usage.ts"
+    "probe:player-usage": "tsx scripts/probe-player-usage.ts",
+    "test:result-context-v0.2": "tsx scripts/test-result-context-v0.2.ts",
+    "ingest:result-context": "tsx scripts/ingest-real-result-context.ts",
+    "test:prematch-markets-v0.2": "tsx scripts/test-prematch-markets-v0.2.ts",
+    "predict:real-markets-v0.2": "tsx scripts/generate-real-market-predictions-v0.2.ts"
   },
   "dependencies": {
     "@neon/config": "^1.3.1",
