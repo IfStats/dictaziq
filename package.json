@@ -41,7 +41,13 @@
     "test:rating-gap-v0.2": "tsx scripts/test-rating-gap-v0.2.ts",
     "test:prematch-v0.2": "tsx scripts/test-prematch-v0.2.ts",
     "test:market-evidence": "tsx scripts/test-market-evidence.ts",
-    "test:goals-btts": "tsx scripts/test-goals-btts-engine.ts"
+    "test:goals-btts": "tsx scripts/test-goals-btts-engine.ts",
+    "test:football-data-live": "tsx scripts/test-football-data-live.ts",
+    "resolve:football-data": "tsx scripts/resolve-football-data-teams.ts",
+    "map:football-data": "tsx scripts/map-reviewed-football-data-teams.ts",
+    "test:football-data-season": "tsx scripts/test-football-data-season.ts",
+    "analyze:real-markets": "tsx scripts/analyze-real-goals-btts.ts",
+    "test:goals-btts-v0.2": "tsx scripts/test-goals-btts-v0.2.ts"
   },
   "dependencies": {
     "@neon/config": "^1.3.1",
