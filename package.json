@@ -39,7 +39,8 @@
     "ingest:rated-fixtures": "tsx scripts/ingest-rated-api-football-fixtures.ts",
     "predict:real-rating-gap": "tsx scripts/generate-real-rating-gap-predictions.ts",
     "test:rating-gap-v0.2": "tsx scripts/test-rating-gap-v0.2.ts",
-    "test:prematch-v0.2": "tsx scripts/test-prematch-v0.2.ts"
+    "test:prematch-v0.2": "tsx scripts/test-prematch-v0.2.ts",
+    "test:market-evidence": "tsx scripts/test-market-evidence.ts"
   },
   "dependencies": {
     "@neon/config": "^1.3.1",
