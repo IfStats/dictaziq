@@ -801,3 +801,140 @@ export const contextEvidenceSnapshots = pgTable(
     ),
   ],
 );
+
+export const marketEvidenceSnapshots = pgTable(
+  "market_evidence_snapshots",
+  {
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    fixtureId: uuid("fixture_id")
+      .notNull()
+      .references(
+        () => fixtures.id,
+        { onDelete: "restrict" },
+      ),
+
+    /*
+     * Exact evidence-contract version.
+     *
+     * Example:
+     * dictaziq-market-evidence-v0.2
+     */
+    evidenceVersion:
+      text("evidence_version")
+        .notNull(),
+
+    /*
+     * SHA-256 of the canonical evidence JSON.
+     */
+    evidenceSha256:
+      text("evidence_sha256")
+        .notNull(),
+
+    /*
+     * Primary statistical provider.
+     *
+     * Individual contextual factors inside
+     * the evidence JSON may have other sources.
+     */
+    source:
+      text("source")
+        .notNull(),
+
+    isDemo:
+      boolean("is_demo")
+        .notNull(),
+
+    /*
+     * Latest point in time permitted for all
+     * evidence included in this snapshot.
+     */
+    cutoffAt: timestamp(
+      "cutoff_at",
+      {
+        withTimezone: true,
+        mode: "date",
+      },
+    ).notNull(),
+
+    /*
+     * Caller cannot choose this value.
+     * The DB trigger overwrites it.
+     */
+    capturedAt: timestamp(
+      "captured_at",
+      {
+        withTimezone: true,
+        mode: "date",
+      },
+    )
+      .defaultNow()
+      .notNull(),
+
+    /*
+     * Complete MarketEvidenceSnapshotV02.
+     */
+    evidence: jsonb("evidence")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+  },
+
+  (table) => [
+    uniqueIndex(
+      "market_evidence_fixture_hash_unique",
+    ).on(
+      table.fixtureId,
+      table.evidenceSha256,
+    ),
+
+    index(
+      "market_evidence_fixture_cutoff_idx",
+    ).on(
+      table.fixtureId,
+      table.cutoffAt,
+    ),
+
+    index(
+      "market_evidence_source_idx",
+    ).on(
+      table.source,
+    ),
+
+    check(
+      "market_evidence_version_check",
+      sql`
+        length(
+          trim(${table.evidenceVersion})
+        ) > 0
+      `,
+    ),
+
+    check(
+      "market_evidence_source_check",
+      sql`
+        length(
+          trim(${table.source})
+        ) > 0
+      `,
+    ),
+
+    check(
+      "market_evidence_sha_check",
+      sql`
+        ${table.evidenceSha256}
+        ~ '^[0-9a-f]{64}$'
+      `,
+    ),
+
+    check(
+      "market_evidence_object_check",
+      sql`
+        jsonb_typeof(
+          ${table.evidence}
+        ) = 'object'
+      `,
+    ),
+  ],
+);
