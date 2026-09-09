@@ -1,15 +1,34 @@
-import type { Metadata } from "next";
-import { connection } from "next/server";
-import MatchWorkspace from "@/components/football/MatchWorkspace";
+import type {
+  Metadata,
+} from "next";
 
-export const metadata: Metadata = {
-  title: "DictazIQ | Football Intelligence",
-  description: "Explore the DictazIQ football prediction demo.",
-  robots: { index: false, follow: false },
-};
+import {
+  connection,
+} from "next/server";
+
+import TodayPredictions from "@/components/football/TodayPredictions";
+
+export const metadata:
+  Metadata = {
+    title:
+      "DictazIQ | Football Intelligence",
+
+    description:
+      "Published DictazIQ football predictions and market intelligence.",
+
+    robots: {
+      index:
+        false,
+
+      follow:
+        false,
+    },
+  };
 
 export default async function HomePage() {
   await connection();
 
-  return <MatchWorkspace />;
+  return (
+    <TodayPredictions />
+  );
 }

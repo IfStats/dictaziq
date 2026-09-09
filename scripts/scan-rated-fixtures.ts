@@ -1,9 +1,23 @@
 import "./load-env";
 
 import assert from "node:assert/strict";
-import { neon } from "@neondatabase/serverless";
 
-import { getDatabaseUrl } from "../src/lib/env/database";
+import {
+  neon,
+} from "@neondatabase/serverless";
+
+import {
+  getDatabaseUrl,
+} from "../src/lib/env/database";
+
+import {
+  evaluatePredictionScope,
+  PREDICTION_SCOPE_VERSION,
+} from "../src/lib/predictions/prediction-scope";
+
+import {
+  evaluateRatingGapV02,
+} from "../src/lib/predictions/rating-gap-v0.2";
 
 import {
   fetchFixturesByDate,
@@ -13,20 +27,12 @@ import type {
   NormalizedApiFootballFixture,
 } from "../src/providers/api-football/types";
 
-import {
-  evaluateRatingGap,
-} from "../src/lib/predictions/rating-gap";
-
 const FOOTBALL_DATABASE_SOURCE =
   "footballdatabase.com";
 
 const API_FOOTBALL_SOURCE =
   "api-football";
 
-/*
- * We must never generate a pre-match signal for
- * a fixture that has already started.
- */
 const PREMATCH_STATUSES =
   new Set([
     "NS",
@@ -41,59 +47,152 @@ type RatedTeam = {
   sourceName: string;
   sourceTeamId: string;
 
-  country: string | null;
+  country:
+    string | null;
 
   rating: number;
-  rankingPosition: number;
 
-  snapshotDate: string;
+  rankingPosition:
+    number;
+
+  snapshotDate:
+    string;
 };
 
 type ResolutionMethod =
-  | "existing"
-  | "exact"
-  | "conservative";
+  | "verified_mapping"
+  | "exact_candidate"
+  | "conservative_candidate";
 
 type ResolvedFixtureTeam = {
-  apiTeamId: number;
-  apiTeamName: string;
+  apiTeamId:
+    number;
 
-  ratedTeam: RatedTeam;
+  apiTeamName:
+    string;
 
-  method: ResolutionMethod;
+  ratedTeam:
+    RatedTeam;
+
+  method:
+    ResolutionMethod;
+
+  verified:
+    boolean;
 };
+
+type ResolutionFailureStatus =
+  | "unmatched"
+  | "ambiguous"
+  | "mapped_without_rating";
 
 type ResolutionResult =
   | {
-      status: "resolved";
-      value: ResolvedFixtureTeam;
+      status:
+        "resolved";
+
+      value:
+        ResolvedFixtureTeam;
     }
   | {
       status:
-        | "unmatched"
-        | "ambiguous"
-        | "mapped_without_rating";
+        ResolutionFailureStatus;
 
-      apiTeamId: number;
-      apiTeamName: string;
+      apiTeamId:
+        number;
+
+      apiTeamName:
+        string;
     };
 
-function requestedDate(): string {
+type RatedFixture = {
+  fixture:
+    NormalizedApiFootballFixture;
+
+  home:
+    ResolvedFixtureTeam;
+
+  away:
+    ResolvedFixtureTeam;
+
+  ratingGap:
+    ReturnType<
+      typeof evaluateRatingGapV02
+    >;
+
+  verifiedProviderChain:
+    boolean;
+};
+
+type MappingReviewItem = {
+  apiTeamId:
+    number;
+
+  apiTeamName:
+    string;
+
+  candidateName:
+    string | null;
+
+  method:
+    ResolutionMethod | null;
+
+  status:
+    "candidate" |
+    ResolutionFailureStatus;
+};
+
+function requestedDate():
+  string {
   const argument =
     process.argv[2]?.trim();
 
-  if (argument) {
-    return argument;
+  const value =
+    argument ||
+    new Date()
+      .toISOString()
+      .slice(
+        0,
+        10,
+      );
+
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      value,
+    )
+  ) {
+    throw new Error(
+      "Date must use YYYY-MM-DD.",
+    );
   }
 
-  return "2026-09-09";
+  const parsed =
+    new Date(
+      `${value}T00:00:00.000Z`,
+    );
+
+  assert.ok(
+    Number.isFinite(
+      parsed.getTime(),
+    ) &&
+      parsed
+        .toISOString()
+        .slice(
+          0,
+          10,
+        ) === value,
+    "Invalid fixture date.",
+  );
+
+  return value;
 }
 
 function dateOnly(
   value: unknown,
 ): string {
   if (
-    typeof value === "string"
+    typeof value ===
+    "string"
   ) {
     const match =
       /^(\d{4}-\d{2}-\d{2})/.exec(
@@ -106,7 +205,15 @@ function dateOnly(
   }
 
   const parsed =
-    new Date(String(value));
+    value instanceof Date
+      ? new Date(
+          value.getTime(),
+        )
+      : new Date(
+          String(
+            value,
+          ),
+        );
 
   assert.ok(
     Number.isFinite(
@@ -117,18 +224,12 @@ function dateOnly(
 
   return parsed
     .toISOString()
-    .slice(0, 10);
+    .slice(
+      0,
+      10,
+    );
 }
 
-/*
- * Normalized exact identity.
- *
- * Diacritics and punctuation do not make two
- * football names fundamentally different:
- *
- * Atlético Madrid -> atletico madrid
- * Bodø / Glimt    -> bodø glimt
- */
 function normalizeName(
   value: string,
 ): string {
@@ -155,26 +256,19 @@ function normalizeName(
 }
 
 /*
- * Conservative second-stage matching.
+ * Conservative identity normalization.
  *
- * Only generic club markers are removed.
  * This is NOT fuzzy matching.
  *
- * Examples:
- *
- * Chelsea FC      -> chelsea
- * Liverpool FC    -> liverpool
- * AFC Bournemouth -> bournemouth
- * Brentford FC    -> brentford
- *
- * We still require the resulting identity to be
- * unique among FootballDatabase-rated teams.
+ * Only generic club designators are removed.
  */
 function conservativeName(
   value: string,
 ): string {
   const tokens =
-    normalizeName(value)
+    normalizeName(
+      value,
+    )
       .split(" ")
       .filter(Boolean);
 
@@ -188,38 +282,84 @@ function conservativeName(
       "ssc",
       "fk",
       "sk",
+      "club",
     ]);
 
   while (
-    tokens.length > 1 &&
-    generic.has(tokens[0])
+    tokens.length >
+      1 &&
+    generic.has(
+      tokens[0],
+    )
   ) {
     tokens.shift();
   }
 
   while (
-    tokens.length > 1 &&
+    tokens.length >
+      1 &&
     generic.has(
       tokens[
-        tokens.length - 1
+        tokens.length -
+          1
       ],
     )
   ) {
     tokens.pop();
   }
 
-  return tokens.join(" ");
+  return tokens.join(
+    " ",
+  );
+}
+
+function uniqueCandidate(
+  candidates:
+    RatedTeam[],
+): RatedTeam | null {
+  const identities =
+    new Map<
+      string,
+      RatedTeam
+    >();
+
+  for (
+    const candidate
+    of candidates
+  ) {
+    identities.set(
+      candidate.teamId,
+      candidate,
+    );
+  }
+
+  if (
+    identities.size !==
+    1
+  ) {
+    return null;
+  }
+
+  return [
+    ...identities.values(),
+  ][0];
 }
 
 async function main() {
   const date =
     requestedDate();
 
-  const client =
-    neon(getDatabaseUrl());
+  const sql =
+    neon(
+      getDatabaseUrl(),
+    );
 
   console.log(
     `Loading API-Football fixtures for ${date}...`,
+  );
+
+  console.log(
+    `Prediction scope: ${PREDICTION_SCOPE_VERSION}`,
   );
 
   const fixturePage =
@@ -228,11 +368,14 @@ async function main() {
     );
 
   /*
-   * Determine the newest real FootballDatabase
-   * ranking snapshot currently available.
+   * Never use a rating snapshot later than the
+   * fixture date.
+   *
+   * This keeps retrospective evaluation safe from
+   * future-rating leakage.
    */
   const snapshotRows =
-    await client`
+    await sql`
       SELECT
         max(snapshot_date)
           AS snapshot_date
@@ -244,6 +387,9 @@ async function main() {
 
         AND is_demo =
           false
+
+        AND snapshot_date <=
+          ${date}::date
     `;
 
   assert.equal(
@@ -254,7 +400,7 @@ async function main() {
   assert.ok(
     snapshotRows[0]
       .snapshot_date,
-    "No real FootballDatabase rating snapshot exists.",
+    `No real FootballDatabase rating snapshot exists on or before ${date}.`,
   );
 
   const snapshotDate =
@@ -264,11 +410,11 @@ async function main() {
     );
 
   /*
-   * Load the canonical DictazIQ teams that have a
-   * FootballDatabase rating for this exact snapshot.
+   * Load every canonical team carrying a rating
+   * on the selected immutable weekly snapshot.
    */
   const ratingRows =
-    await client`
+    await sql`
       SELECT
         team.id
           AS team_id,
@@ -312,68 +458,79 @@ async function main() {
 
         AND rating.is_demo =
           false
+
+        AND team.is_demo =
+          false
     `;
 
   const ratedTeams:
     RatedTeam[] =
-      ratingRows.map(
-        (row) => ({
-          teamId:
-            String(
-              row.team_id,
-            ),
+    ratingRows.map(
+      (row) => ({
+        teamId:
+          String(
+            row.team_id,
+          ),
 
-          canonicalName:
-            String(
-              row.canonical_name,
-            ),
+        canonicalName:
+          String(
+            row
+              .canonical_name,
+          ),
 
-          sourceName:
-            String(
-              row.source_name,
-            ),
+        sourceName:
+          String(
+            row.source_name,
+          ),
 
-          sourceTeamId:
-            String(
-              row.source_team_id,
-            ),
+        sourceTeamId:
+          String(
+            row
+              .source_team_id,
+          ),
 
-          country:
-            row.country ===
-            null
-              ? null
-              : String(
-                  row.country,
-                ),
+        country:
+          row.country ===
+          null
+            ? null
+            : String(
+                row.country,
+              ),
 
-          rating:
-            Number(
-              row.rating,
-            ),
+        rating:
+          Number(
+            row.rating,
+          ),
 
-          rankingPosition:
-            Number(
-              row.ranking_position,
-            ),
+        rankingPosition:
+          Number(
+            row
+              .ranking_position,
+          ),
 
-          snapshotDate:
-            dateOnly(
-              row.snapshot_date,
-            ),
-        }),
-      );
+        snapshotDate:
+          dateOnly(
+            row
+              .snapshot_date,
+          ),
+      }),
+    );
 
   assert.ok(
-    ratedTeams.length > 0,
+    ratedTeams.length >
+      0,
     "No FootballDatabase-rated teams were loaded.",
   );
 
   /*
-   * Existing API-Football mappings always take
-   * precedence over name matching.
+   * Only VERIFIED API-Football mappings count as
+   * persisted provider identity.
+   *
+   * Exact/conservative name resolution below is
+   * strictly read-only candidate discovery.
    */
   const apiMappingRows =
-    await client`
+    await sql`
       SELECT
         source_team_id,
         team_id
@@ -382,6 +539,9 @@ async function main() {
 
       WHERE source =
         ${API_FOOTBALL_SOURCE}
+
+        AND is_verified =
+          true
     `;
 
   const apiMappingBySourceId =
@@ -394,10 +554,21 @@ async function main() {
     const mapping
     of apiMappingRows
   ) {
-    apiMappingBySourceId.set(
+    const sourceId =
       String(
-        mapping.source_team_id,
+        mapping
+          .source_team_id,
+      );
+
+    assert.ok(
+      !apiMappingBySourceId.has(
+        sourceId,
       ),
+      `Duplicate verified API-Football identity ${sourceId}.`,
+    );
+
+    apiMappingBySourceId.set(
+      sourceId,
       String(
         mapping.team_id,
       ),
@@ -420,47 +591,18 @@ async function main() {
     );
   }
 
-  function uniqueCandidate(
-    candidates:
-      RatedTeam[],
-  ): RatedTeam | null {
-    const identities =
-      new Map<
-        string,
-        RatedTeam
-      >();
-
-    for (
-      const candidate
-      of candidates
-    ) {
-      identities.set(
-        candidate.teamId,
-        candidate,
-      );
-    }
-
-    if (
-      identities.size !== 1
-    ) {
-      return null;
-    }
-
-    return [
-      ...identities.values(),
-    ][0];
-  }
-
   function resolveTeam(
     apiTeamId: number,
     apiTeamName: string,
   ): ResolutionResult {
     /*
-     * 1. Existing reviewed/persisted source mapping.
+     * 1. Verified persisted source mapping.
      */
     const mappedTeamId =
       apiMappingBySourceId.get(
-        String(apiTeamId),
+        String(
+          apiTeamId,
+        ),
       );
 
     if (
@@ -482,7 +624,8 @@ async function main() {
       }
 
       return {
-        status: "resolved",
+        status:
+          "resolved",
 
         value: {
           apiTeamId,
@@ -492,40 +635,50 @@ async function main() {
             rated,
 
           method:
-            "existing",
+            "verified_mapping",
+
+          verified:
+            true,
         },
       };
     }
 
     /*
-     * 2. Exact normalized name.
+     * 2. Exact normalized identity.
+     *
+     * Candidate discovery only.
+     * No DB write occurs here.
      */
     const normalized =
       normalizeName(
         apiTeamName,
       );
 
-    const exact =
+    const exactMatches =
       ratedTeams.filter(
         (team) =>
           normalizeName(
-            team.canonicalName,
-          ) === normalized ||
+            team
+              .canonicalName,
+          ) ===
+            normalized ||
           normalizeName(
             team.sourceName,
-          ) === normalized,
+          ) ===
+            normalized,
       );
 
     const exactCandidate =
       uniqueCandidate(
-        exact,
+        exactMatches,
       );
 
     if (
       exactCandidate
     ) {
       return {
-        status: "resolved",
+        status:
+          "resolved",
 
         value: {
           apiTeamId,
@@ -535,13 +688,17 @@ async function main() {
             exactCandidate,
 
           method:
-            "exact",
+            "exact_candidate",
+
+          verified:
+            false,
         },
       };
     }
 
     if (
-      exact.length > 1
+      exactMatches.length >
+      1
     ) {
       return {
         status:
@@ -553,20 +710,21 @@ async function main() {
     }
 
     /*
-     * 3. Conservative club-marker normalization.
+     * 3. Conservative identity.
      *
-     * Still no fuzzy matching.
+     * Still no fuzzy matching and no writes.
      */
     const conservative =
       conservativeName(
         apiTeamName,
       );
 
-    const candidates =
+    const conservativeMatches =
       ratedTeams.filter(
         (team) =>
           conservativeName(
-            team.canonicalName,
+            team
+              .canonicalName,
           ) ===
             conservative ||
           conservativeName(
@@ -577,14 +735,15 @@ async function main() {
 
     const candidate =
       uniqueCandidate(
-        candidates,
+        conservativeMatches,
       );
 
     if (
       candidate
     ) {
       return {
-        status: "resolved",
+        status:
+          "resolved",
 
         value: {
           apiTeamId,
@@ -594,13 +753,18 @@ async function main() {
             candidate,
 
           method:
-            "conservative",
+            "conservative_candidate",
+
+          verified:
+            false,
         },
       };
     }
 
     if (
-      candidates.length > 1
+      conservativeMatches
+        .length >
+      1
     ) {
       return {
         status:
@@ -620,41 +784,123 @@ async function main() {
     };
   }
 
-  const prematchFixtures =
-    fixturePage.fixtures.filter(
-      (fixture) =>
-        PREMATCH_STATUSES.has(
-          fixture.status.short,
-        ),
-    );
+  const now =
+    Date.now();
+
+  let providerPrematch =
+    0;
+
+  let futurePrematch =
+    0;
+
+  let scopeEligible =
+    0;
+
+  let excludedYouth =
+    0;
+
+  let excludedWomen =
+    0;
+
+  let excludedReserve =
+    0;
+
+  let excludedAcademy =
+    0;
 
   const ratedFixtures:
-    Array<{
-      fixture: NormalizedApiFootballFixture;
+    RatedFixture[] = [];
 
-      home: ResolvedFixtureTeam;
-      away: ResolvedFixtureTeam;
-
-      ratingGap:
-        ReturnType<
-          typeof evaluateRatingGap
-        >;
-    }> = [];
-
-  const unresolvedRatedCandidates =
+  const mappingReview =
     new Map<
-      string,
-      {
-        id: number;
-        name: string;
-        status: string;
-      }
+      number,
+      MappingReviewItem
     >();
 
   for (
     const fixture
-    of prematchFixtures
+    of fixturePage.fixtures
   ) {
+    if (
+      !PREMATCH_STATUSES.has(
+        fixture.status.short,
+      )
+    ) {
+      continue;
+    }
+
+    providerPrematch +=
+      1;
+
+    const kickoffMs =
+      Date.parse(
+        fixture.kickoffAt,
+      );
+
+    if (
+      !Number.isFinite(
+        kickoffMs,
+      ) ||
+      kickoffMs <= now
+    ) {
+      continue;
+    }
+
+    futurePrematch +=
+      1;
+
+    /*
+     * DictazIQ Core v1 population gate.
+     *
+     * Exclude youth, women, reserve and academy
+     * football BEFORE identity resolution.
+     */
+    const scope =
+      evaluatePredictionScope(
+        fixture,
+      );
+
+    if (
+      !scope.eligible
+    ) {
+      if (
+        scope.reason ===
+        "youth"
+      ) {
+        excludedYouth +=
+          1;
+      }
+
+      if (
+        scope.reason ===
+        "women"
+      ) {
+        excludedWomen +=
+          1;
+      }
+
+      if (
+        scope.reason ===
+        "reserve"
+      ) {
+        excludedReserve +=
+          1;
+      }
+
+      if (
+        scope.reason ===
+        "academy"
+      ) {
+        excludedAcademy +=
+          1;
+      }
+
+      continue;
+    }
+
+    scopeEligible +=
+      1;
+
     const home =
       resolveTeam(
         fixture.home.id,
@@ -667,127 +913,127 @@ async function main() {
         fixture.away.name,
       );
 
-    if (
-      home.status ===
-        "resolved" &&
-      away.status ===
-        "resolved"
-    ) {
-      /*
-       * Rating comparison must use the same
-       * FootballDatabase snapshot date.
-       */
-      assert.equal(
-        home.value
-          .ratedTeam
-          .snapshotDate,
-        away.value
-          .ratedTeam
-          .snapshotDate,
-        "Fixture teams use different rating snapshot dates.",
-      );
-
-      const result =
-        evaluateRatingGap({
-          home: {
-            rating:
-              home.value
-                .ratedTeam
-                .rating,
-
-            source:
-              FOOTBALL_DATABASE_SOURCE,
-
-            snapshotDate:
-              home.value
-                .ratedTeam
-                .snapshotDate,
-          },
-
-          away: {
-            rating:
-              away.value
-                .ratedTeam
-                .rating,
-
-            source:
-              FOOTBALL_DATABASE_SOURCE,
-
-            snapshotDate:
-              away.value
-                .ratedTeam
-                .snapshotDate,
-          },
-        });
-
-      ratedFixtures.push({
-        fixture,
-
-        home:
-          home.value,
-
-        away:
-          away.value,
-
-        ratingGap:
-          result,
-      });
-
-      continue;
-    }
-
     /*
-     * Keep a concise review list rather than print
-     * hundreds of unrelated lower-ranked clubs.
-     *
-     * A team gets reported when its normalized name
-     * resembles one of our rated teams but did not
-     * resolve safely.
+     * Capture safe candidates for manual review.
      */
     for (
       const result
-      of [home, away]
+      of [
+        home,
+        away,
+      ]
     ) {
       if (
         result.status ===
         "resolved"
       ) {
+        if (
+          !result.value
+            .verified
+        ) {
+          mappingReview.set(
+            result.value
+              .apiTeamId,
+            {
+              apiTeamId:
+                result.value
+                  .apiTeamId,
+
+              apiTeamName:
+                result.value
+                  .apiTeamName,
+
+              candidateName:
+                result.value
+                  .ratedTeam
+                  .canonicalName,
+
+              method:
+                result.value
+                  .method,
+
+              status:
+                "candidate",
+            },
+          );
+        }
+
         continue;
       }
 
+      /*
+       * Only surface unresolved identities when
+       * they plausibly relate to our rated-team
+       * universe.
+       *
+       * This remains diagnostic only.
+       */
       const core =
         conservativeName(
           result.apiTeamName,
         );
 
       const possiblyRated =
+        core.length >
+          0 &&
         ratedTeams.some(
-          (team) =>
-            conservativeName(
-              team.canonicalName,
-            ).includes(
-              core,
-            ) ||
-            core.includes(
+          (team) => {
+            const canonical =
               conservativeName(
-                team.canonicalName,
-              ),
-            ),
+                team
+                  .canonicalName,
+              );
+
+            const source =
+              conservativeName(
+                team
+                  .sourceName,
+              );
+
+            return (
+              canonical ===
+                core ||
+              source ===
+                core ||
+              (
+                core.length >=
+                  4 &&
+                (
+                  canonical.includes(
+                    core,
+                  ) ||
+                  core.includes(
+                    canonical,
+                  ) ||
+                  source.includes(
+                    core,
+                  ) ||
+                  core.includes(
+                    source,
+                  )
+                )
+              )
+            );
+          },
         );
 
       if (
         possiblyRated
       ) {
-        unresolvedRatedCandidates.set(
-          String(
-            result.apiTeamId,
-          ),
+        mappingReview.set(
+          result.apiTeamId,
           {
-            id:
+            apiTeamId:
               result.apiTeamId,
 
-            name:
+            apiTeamName:
               result.apiTeamName,
+
+            candidateName:
+              null,
+
+            method:
+              null,
 
             status:
               result.status,
@@ -795,7 +1041,101 @@ async function main() {
         );
       }
     }
+
+    if (
+      home.status !==
+        "resolved" ||
+      away.status !==
+        "resolved"
+    ) {
+      continue;
+    }
+
+    /*
+     * Both ratings must come from the identical
+     * weekly snapshot.
+     */
+    assert.equal(
+      home.value
+        .ratedTeam
+        .snapshotDate,
+      away.value
+        .ratedTeam
+        .snapshotDate,
+      "Fixture teams use different rating snapshot dates.",
+    );
+
+    const ratingGap =
+      evaluateRatingGapV02({
+        home: {
+          rating:
+            home.value
+              .ratedTeam
+              .rating,
+
+          source:
+            FOOTBALL_DATABASE_SOURCE,
+
+          snapshotDate:
+            home.value
+              .ratedTeam
+              .snapshotDate,
+        },
+
+        away: {
+          rating:
+            away.value
+              .ratedTeam
+              .rating,
+
+          source:
+            FOOTBALL_DATABASE_SOURCE,
+
+          snapshotDate:
+            away.value
+              .ratedTeam
+              .snapshotDate,
+        },
+      });
+
+    ratedFixtures.push({
+      fixture,
+
+      home:
+        home.value,
+
+      away:
+        away.value,
+
+      ratingGap,
+
+      /*
+       * Exact/conservative candidate resolution
+       * makes a fixture analytically interesting,
+       * but it must NOT be persisted until both
+       * API identities are manually verified.
+       */
+      verifiedProviderChain:
+        home.value
+          .verified &&
+        away.value
+          .verified,
+    });
   }
+
+  const verifiedRatedFixtures =
+    ratedFixtures.filter(
+      (item) =>
+        item
+          .verifiedProviderChain,
+    );
+
+  const reviewRatedFixtures =
+    ratedFixtures.filter(
+      (item) =>
+        !item
+          .verifiedProviderChain,
+    );
 
   console.log("");
 
@@ -804,26 +1144,50 @@ async function main() {
   );
 
   console.log(
-    "PASS: only pre-match fixtures considered.",
+    "PASS: already-started fixtures excluded.",
   );
 
   console.log(
-    "PASS: FootballDatabase-rated teams loaded from immutable Neon snapshots.",
+    `PASS: prediction scope ${PREDICTION_SCOPE_VERSION} applied.`,
   );
 
   console.log(
-    "PASS: provider mapping takes precedence over name matching.",
+    "PASS: FootballDatabase ratings loaded from immutable non-demo snapshots.",
   );
 
   console.log(
-    "PASS: no fuzzy mappings were written.",
+    "PASS: only verified API mappings count as persisted provider identity.",
   );
 
   console.log(
-    "PASS: real rating-gap model evaluated automatically matched fixtures.",
+    "PASS: exact/conservative resolution remains read-only candidate discovery.",
+  );
+
+  console.log(
+    "PASS: structural rating analysis uses dictaziq-rating-gap-v0.2.",
+  );
+
+  console.log(
+    "PASS: no goals market is selected by this scanner.",
+  );
+
+  console.log(
+    "PASS: no provider mappings or fixtures were written.",
   );
 
   console.log("");
+
+  console.log(
+    "========================================",
+  );
+
+  console.log(
+    "SCAN SUMMARY",
+  );
+
+  console.log(
+    "========================================",
+  );
 
   console.log(
     `Fixture date: ${date}`,
@@ -834,8 +1198,34 @@ async function main() {
   );
 
   console.log(
-    `Pre-match fixtures: ${prematchFixtures.length}`,
+    `Provider pre-match status fixtures: ${providerPrematch}`,
   );
+
+  console.log(
+    `Future pre-match fixtures: ${futurePrematch}`,
+  );
+
+  console.log(
+    `Scope-eligible senior fixtures: ${scopeEligible}`,
+  );
+
+  console.log(
+    `Excluded youth fixtures: ${excludedYouth}`,
+  );
+
+  console.log(
+    `Excluded women's fixtures: ${excludedWomen}`,
+  );
+
+  console.log(
+    `Excluded reserve/II fixtures: ${excludedReserve}`,
+  );
+
+  console.log(
+    `Excluded academy fixtures: ${excludedAcademy}`,
+  );
+
+  console.log("");
 
   console.log(
     `FootballDatabase snapshot: ${snapshotDate}`,
@@ -846,16 +1236,25 @@ async function main() {
   );
 
   console.log(
-    `Fully rated pre-match fixtures: ${ratedFixtures.length}`,
+    `Rated structural candidates: ${ratedFixtures.length}`,
+  );
+
+  console.log(
+    `Verified-provider rated fixtures: ${verifiedRatedFixtures.length}`,
+  );
+
+  console.log(
+    `Rated fixtures requiring mapping review: ${reviewRatedFixtures.length}`,
   );
 
   console.log("");
 
   if (
-    ratedFixtures.length === 0
+    ratedFixtures.length ===
+    0
   ) {
     console.log(
-      "No pre-match fixture currently has both teams safely resolved to the available FootballDatabase top-50 snapshot.",
+      "No scope-eligible future fixture currently has both teams safely resolvable to the active FootballDatabase rating snapshot.",
     );
   } else {
     console.log(
@@ -877,6 +1276,7 @@ async function main() {
         home,
         away,
         ratingGap,
+        verifiedProviderChain,
       } = item;
 
       console.log(
@@ -892,6 +1292,14 @@ async function main() {
 
       console.log(
         `Fixture ID: ${fixture.fixtureId}`,
+      );
+
+      console.log(
+        `Provider chain: ${
+          verifiedProviderChain
+            ? "VERIFIED"
+            : "REVIEW REQUIRED"
+        }`,
       );
 
       console.log(
@@ -919,19 +1327,37 @@ async function main() {
       );
 
       console.log(
-        `Signal = ${ratingGap.signal}`,
+        `Structural result signal = ${ratingGap.resultSignal}`,
       );
 
       console.log(
-        `Selection = ${ratingGap.standaloneSelection}`,
+        `Higher-rated team = ${ratingGap.higherRatedTeam}`,
       );
 
       console.log(
-        `Over 2.5 = ${ratingGap.over25Signal}`,
+        `Standalone result selection = ${ratingGap.standaloneSelection ?? "none"}`,
       );
 
       console.log(
-        `Requires context = ${ratingGap.requiresContext}`,
+        `Requires result context = ${ratingGap.requiresResultContext}`,
+      );
+
+      console.log(
+        `Goals analysis required = ${ratingGap.markets.goals.requiresAnalysis}`,
+      );
+
+      console.log(
+        `Rating mismatch candidate for goals analysis = ${ratingGap.markets.goals.ratingMismatchCandidate}`,
+      );
+
+      console.log(
+        "Goals selection = none at rating-gap stage",
+      );
+
+      console.log(
+        `Calibrated probability = ${String(
+          ratingGap.calibratedProbability,
+        )}`,
       );
 
       console.log("");
@@ -939,38 +1365,89 @@ async function main() {
   }
 
   if (
-    unresolvedRatedCandidates.size >
+    mappingReview.size >
     0
   ) {
     console.log(
-      "POSSIBLE MAPPING REVIEW",
+      "MAPPING REVIEW QUEUE",
     );
 
     console.log(
-      "=======================",
+      "====================",
     );
 
     console.log("");
 
     for (
       const candidate
-      of unresolvedRatedCandidates.values()
+      of mappingReview.values()
     ) {
-      console.log(
-        `${candidate.id} | ${candidate.name} | ${candidate.status}`,
-      );
+      if (
+        candidate.status ===
+        "candidate"
+      ) {
+        console.log(
+          [
+            candidate
+              .apiTeamId,
+            "|",
+            candidate
+              .apiTeamName,
+            "|",
+            candidate
+              .method,
+            "->",
+            candidate
+              .candidateName,
+          ].join(
+            " ",
+          ),
+        );
+      } else {
+        console.log(
+          [
+            candidate
+              .apiTeamId,
+            "|",
+            candidate
+              .apiTeamName,
+            "|",
+            candidate
+              .status,
+          ].join(
+            " ",
+          ),
+        );
+      }
     }
 
     console.log("");
   }
 
+  if (
+    verifiedRatedFixtures.length >
+    0
+  ) {
+    console.log(
+      `PASS: ${verifiedRatedFixtures.length} rated fixture(s) have verified API-Football identities and may proceed to persistence subject to downstream gates.`,
+    );
+  } else {
+    console.log(
+      "NOTICE: no rated fixture currently has both API-Football identities verified.",
+    );
+  }
+
+  console.log("");
+
   console.log(
-    "NOTE: dry run only. No API-Football team mappings or fixtures were written to Neon.",
+    "NOTE: this command is strictly read-only. It never creates or verifies a provider mapping.",
   );
 }
 
 main().catch(
-  (error: unknown) => {
+  (
+    error: unknown,
+  ) => {
     if (
       error instanceof
       assert.AssertionError
@@ -980,12 +1457,14 @@ main().catch(
       );
     } else {
       console.error(
-        error instanceof Error
+        error instanceof
+        Error
           ? `Rated fixture scan failed: ${error.message}`
           : "Rated fixture scan failed.",
       );
     }
 
-    process.exitCode = 1;
+    process.exitCode =
+      1;
   },
 );

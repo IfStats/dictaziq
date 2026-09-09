@@ -3,6 +3,10 @@ import "./load-env";
 import assert from "node:assert/strict";
 import { neon } from "@neondatabase/serverless";
 
+import {
+  evaluatePredictionScope,
+} from "../src/lib/predictions/prediction-scope";
+
 import { getDatabaseUrl } from "../src/lib/env/database";
 
 import {
@@ -912,6 +916,17 @@ async function main() {
     ) {
       continue;
     }
+
+    const scope =
+  evaluatePredictionScope(
+    fixture,
+  );
+
+if (
+  !scope.eligible
+) {
+  continue;
+}
 
     const kickoffMs =
       new Date(

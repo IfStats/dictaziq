@@ -1,0 +1,167 @@
+{
+  "version": "dictaziq-reviewed-team-mappings-v0.1",
+  "reviewedAt": "2026-09-09",
+  "mappings": [
+    {
+      "provider": "api-football",
+      "providerTeamId": 40,
+      "providerName": "Liverpool",
+      "footballDatabaseName": "Liverpool FC",
+      "method": "alias",
+      "reason": "Same Liverpool first team under provider-specific naming."
+    },
+    {
+      "provider": "api-football",
+      "providerTeamId": 530,
+      "providerName": "Atletico Madrid",
+      "footballDatabaseName": "Atlético Madrid",
+      "method": "alias",
+      "reason": "Same Atletico Madrid first team; provider spelling omits the accent."
+    },
+    {
+      "provider": "api-football",
+      "providerTeamId": 492,
+      "providerName": "Napoli",
+      "footballDatabaseName": "SSC Napoli",
+      "method": "alias",
+      "reason": "Same Napoli first team under provider-specific naming."
+    },
+    {
+      "provider": "api-football",
+      "providerTeamId": 42,
+      "providerName": "Arsenal",
+      "footballDatabaseName": "Arsenal",
+      "method": "exact",
+      "reason": "Exact first-team identity."
+    },
+    {
+      "provider": "api-football",
+      "providerTeamId": 228,
+      "providerName": "Sporting CP",
+      "footballDatabaseName": "Sporting",
+      "method": "alias",
+      "reason": "Same Sporting first team under provider-specific naming."
+    },
+    {
+      "provider": "api-football",
+      "providerTeamId": 63,
+      "providerName": "Leeds",
+      "footballDatabaseName": "Leeds United",
+      "method": "alias",
+      "reason": "Same Leeds United first team under provider-specific naming."
+    },
+    {
+      "provider": "api-football",
+      "providerTeamId": 645,
+      "providerName": "Galatasaray",
+      "footballDatabaseName": "Galatasaray",
+      "method": "exact",
+      "reason": "Exact first-team identity."
+    },
+    {
+      "provider": "api-football",
+      "providerTeamId": 49,
+      "providerName": "Chelsea",
+      "footballDatabaseName": "Chelsea FC",
+      "method": "alias",
+      "reason": "Same Chelsea first team under provider-specific naming."
+    },
+
+    {
+      "provider": "football-data.org",
+      "providerTeamId": 57,
+      "providerName": "Arsenal FC",
+      "footballDatabaseName": "Arsenal",
+      "method": "alias",
+      "reason": "Same Arsenal first team under provider-specific naming."
+    },
+    {
+      "provider": "football-data.org",
+      "providerTeamId": 61,
+      "providerName": "Chelsea FC",
+      "footballDatabaseName": "Chelsea FC",
+      "method": "exact",
+      "reason": "Exact first-team identity."
+    },
+    {
+      "provider": "football-data.org",
+      "providerTeamId": 64,
+      "providerName": "Liverpool FC",
+      "footballDatabaseName": "Liverpool FC",
+      "method": "exact",
+      "reason": "Exact first-team identity."
+    },
+    {
+      "provider": "football-data.org",
+      "providerTeamId": 341,
+      "providerName": "Leeds United FC",
+      "footballDatabaseName": "Leeds United",
+      "method": "alias",
+      "reason": "Same Leeds United first team under provider-specific naming."
+    },
+    {
+      "provider": "football-data.org",
+      "providerTeamId": 113,
+      "providerName": "SSC Napoli",
+      "footballDatabaseName": "SSC Napoli",
+      "method": "exact",
+      "reason": "Exact first-team identity."
+    },
+    {
+      "provider": "football-data.org",
+      "providerTeamId": 78,
+      "providerName": "Club Atlético de Madrid",
+      "footballDatabaseName": "Atlético Madrid",
+      "method": "alias",
+      "reason": "Same Atletico Madrid first team under provider-specific naming."
+    },
+    {
+      "provider": "football-data.org",
+      "providerTeamId": 498,
+      "providerName": "Sporting Clube de Portugal",
+      "footballDatabaseName": "Sporting",
+      "method": "alias",
+      "reason": "Same Sporting first team under provider-specific naming."
+    },
+        {
+      "provider": "football-data.org",
+      "providerTeamId": 610,
+      "providerName": "Galatasaray SK",
+      "footballDatabaseName": "Galatasaray",
+      "method": "alias",
+      "reason": "Same Galatasaray first team under provider-specific naming."
+    },
+    {
+      "provider": "api-football",
+      "providerTeamId": 611,
+      "providerName": "Fenerbahçe",
+      "footballDatabaseName": "Fenerbahçe",
+      "method": "exact",
+      "reason": "Exact senior first-team identity confirmed by the 2026-09-10 rated fixture scan."
+    },
+    {
+      "provider": "api-football",
+      "providerTeamId": 497,
+      "providerName": "AS Roma",
+      "footballDatabaseName": "AS Roma",
+      "method": "exact",
+      "reason": "Exact senior first-team identity confirmed by the 2026-09-10 rated fixture scan."
+    },
+    {
+      "provider": "api-football",
+      "providerTeamId": 197,
+      "providerName": "PSV Eindhoven",
+      "footballDatabaseName": "PSV Eindhoven",
+      "method": "exact",
+      "reason": "Exact senior first-team identity confirmed by the 2026-09-10 rated fixture scan."
+    },
+    {
+      "provider": "api-football",
+      "providerTeamId": 550,
+      "providerName": "Shakhtar Donetsk",
+      "footballDatabaseName": "Shakhtar Donetsk",
+      "method": "exact",
+      "reason": "Exact senior first-team identity confirmed by the 2026-09-10 rated fixture scan."
+    }
+  ]
+}

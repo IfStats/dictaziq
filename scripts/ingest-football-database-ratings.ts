@@ -66,6 +66,27 @@ function slugify(
   return result;
 }
 
+function requestedPageCount(): number {
+  const raw =
+    process.argv[2]?.trim() ||
+    "5";
+
+  const value =
+    Number(raw);
+
+  if (
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > 20
+  ) {
+    throw new Error(
+      "Ranking page count must be an integer between 1 and 20.",
+    );
+  }
+
+  return value;
+}
+
 async function main() {
   const client =
     neon(getDatabaseUrl());
@@ -95,32 +116,125 @@ async function main() {
    * Fetch the current live FootballDatabase
    * world ranking page.
    */
+  const pageCount =
+  requestedPageCount();
+
+console.log(
+  `Fetching FootballDatabase world ranking pages 1-${pageCount}...`,
+);
+
+const rankingPages = [];
+
+for (
+  let page = 1;
+  page <= pageCount;
+  page += 1
+) {
   console.log(
-    "Fetching FootballDatabase world ranking page 1...",
+    `Fetching ranking page ${page}...`,
   );
 
-  const ranking =
+  const result =
     await fetchFootballDatabaseWorldRanking(
-      1,
+      page,
     );
 
   assert.equal(
-    ranking.source,
+    result.source,
     FOOTBALL_DATABASE_SOURCE,
   );
 
   assert.ok(
-    ranking.ratings.length > 0,
-    "FootballDatabase returned no ratings.",
+    result.ratings.length > 0,
+    `FootballDatabase page ${page} returned no ratings.`,
   );
 
-  console.log(
-    `Snapshot date: ${ranking.snapshotDate}`,
+  rankingPages.push(
+    result,
   );
+}
 
-  console.log(
-    `Ratings received: ${ranking.ratings.length}`,
+assert.ok(
+  rankingPages.length > 0,
+  "No ranking pages were loaded.",
+);
+
+const snapshotDate =
+  rankingPages[0].snapshotDate;
+
+for (
+  const page
+  of rankingPages
+) {
+  assert.equal(
+    page.snapshotDate,
+    snapshotDate,
+    "FootballDatabase ranking pages have different snapshot dates.",
   );
+}
+
+/*
+ * Deduplicate by the source's stable team identity.
+ */
+const ratingByTeam =
+  new Map();
+
+for (
+  const page
+  of rankingPages
+) {
+  for (
+    const rating
+    of page.ratings
+  ) {
+    const existing =
+      ratingByTeam.get(
+        rating.sourceTeamId,
+      );
+
+    if (existing) {
+      assert.equal(
+        existing.rating,
+        rating.rating,
+        `Duplicate team ${rating.sourceTeamId} has inconsistent rating.`,
+      );
+
+      continue;
+    }
+
+    ratingByTeam.set(
+      rating.sourceTeamId,
+      rating,
+    );
+  }
+}
+
+const ranking = {
+  source:
+    FOOTBALL_DATABASE_SOURCE,
+
+  page:
+    0,
+
+  snapshotDate,
+
+  ratings:
+    [
+      ...ratingByTeam.values(),
+    ],
+};
+
+console.log(
+  `Snapshot date: ${ranking.snapshotDate}`,
+);
+
+console.log(
+  `Ranking pages: ${pageCount}`,
+);
+
+console.log(
+  `Unique ratings received: ${ranking.ratings.length}`,
+);
 
   console.log("");
 
@@ -440,10 +554,10 @@ async function main() {
             rating.snapshotDate,
 
           discovered_from:
-            "world-ranking-page",
+            "world-ranking-pages",
 
-          ranking_page:
-            1,
+          ranking_pages_scanned:
+             pageCount,
 
           automatically_created:
             true,
@@ -569,8 +683,8 @@ async function main() {
             club_url:
               rating.clubUrl,
 
-            ranking_page:
-              1,
+            ranking_pages_scanned:
+              pageCount,
 
             mapping_id:
               mapping.mappingId,

@@ -214,10 +214,23 @@ async function main() {
         prediction.generated_at DESC
     `;
 
-  assert.ok(
-    fixtures.length > 0,
-    "No context-required fixtures found.",
+  if (
+  fixtures.length === 0
+) {
+  console.log(
+    "Context-required fixtures: 0",
   );
+
+  console.log(
+    "PASS: no result-context capture required for this slate.",
+  );
+
+  return;
+}
+
+console.log(
+  `Context-required fixtures: ${fixtures.length}`,
+);
 
   console.log(
     `Context-required fixtures: ${fixtures.length}`,
