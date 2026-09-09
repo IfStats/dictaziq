@@ -201,6 +201,49 @@ function normalizeFixture(
       "goals",
     );
 
+  /*
+   * API-Football score breakdown.
+   *
+   * We use score.fulltime for regulation-time
+   * settlement so extra time and penalties
+   * cannot contaminate prediction outcomes.
+   */
+  const score =
+    item.score === null ||
+    item.score === undefined
+      ? {}
+      : record(
+          item.score,
+          "score",
+        );
+
+  const fulltime =
+    score.fulltime === null ||
+    score.fulltime === undefined
+      ? {}
+      : record(
+          score.fulltime,
+          "score.fulltime",
+        );
+
+  const extratime =
+    score.extratime === null ||
+    score.extratime === undefined
+      ? {}
+      : record(
+          score.extratime,
+          "score.extratime",
+        );
+
+  const penalty =
+    score.penalty === null ||
+    score.penalty === undefined
+      ? {}
+      : record(
+          score.penalty,
+          "score.penalty",
+        );
+
   const status =
     record(
       fixture.status,
@@ -208,7 +251,8 @@ function normalizeFixture(
     );
 
   const venue =
-    fixture.venue === null
+    fixture.venue === null ||
+    fixture.venue === undefined
       ? {}
       : record(
           fixture.venue,
@@ -222,7 +266,9 @@ function normalizeFixture(
     );
 
   const kickoff =
-    new Date(kickoffAt);
+    new Date(
+      kickoffAt,
+    );
 
   if (
     !Number.isFinite(
@@ -351,6 +397,44 @@ function normalizeFixture(
         nullableNumber(
           goals.away,
         ),
+    },
+
+    score: {
+      fulltime: {
+        home:
+          nullableNumber(
+            fulltime.home,
+          ),
+
+        away:
+          nullableNumber(
+            fulltime.away,
+          ),
+      },
+
+      extratime: {
+        home:
+          nullableNumber(
+            extratime.home,
+          ),
+
+        away:
+          nullableNumber(
+            extratime.away,
+          ),
+      },
+
+      penalty: {
+        home:
+          nullableNumber(
+            penalty.home,
+          ),
+
+        away:
+          nullableNumber(
+            penalty.away,
+          ),
+      },
     },
 
     venue: {

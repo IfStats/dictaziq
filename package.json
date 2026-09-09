@@ -60,7 +60,10 @@
     "ingest:result-context": "tsx scripts/ingest-real-result-context.ts",
     "test:prematch-markets-v0.2": "tsx scripts/test-prematch-markets-v0.2.ts",
     "predict:real-markets-v0.2": "tsx scripts/generate-real-market-predictions-v0.2.ts",
-    "publish:real-markets-v0.2": "tsx scripts/publish-real-predictions-v0.2.ts"
+    "publish:real-markets-v0.2": "tsx scripts/publish-real-predictions-v0.2.ts",
+    "test:settlement-targets-v0.2": "tsx scripts/test-settlement-targets-v0.2.ts",
+    "ingest:real-results": "tsx scripts/ingest-real-results.ts",
+    "settle:real-v0.2": "tsx scripts/settle-real-predictions-v0.2.ts"
   },
   "dependencies": {
     "@neon/config": "^1.3.1",

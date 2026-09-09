@@ -39,6 +39,23 @@ export type NormalizedApiFootballFixture = {
     away: number | null;
   };
 
+  score: {
+  fulltime: {
+    home: number | null;
+    away: number | null;
+  };
+
+  extratime: {
+    home: number | null;
+    away: number | null;
+  };
+
+  penalty: {
+    home: number | null;
+    away: number | null;
+  };
+};
+
   venue: {
     id: number | null;
     name: string | null;
