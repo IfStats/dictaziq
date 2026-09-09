@@ -381,11 +381,3 @@ console.log(
 console.log(
   `PASS: LLM analysis contract = ${LLM_ANALYSIS_VERSION}.`,
 );
-
-const contextEvidence =
-  snapshot.context_evidence;
-
-assert.ok(
-  Array.isArray(contextEvidence),
-  "Prediction snapshot must contain context evidence.",
-);

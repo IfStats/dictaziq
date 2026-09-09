@@ -50,6 +50,13 @@
       "when": 1788889835708,
       "tag": "0006_tricky_otto_octavius",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788943316839,
+      "tag": "0007_steady_blazing_skull",
+      "breakpoints": true
     }
   ]
 }

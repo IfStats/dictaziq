@@ -101,6 +101,116 @@ export const teams = pgTable(
   ],
 );
 
+export const teamSourceMappings = pgTable(
+  "team_source_mappings",
+  {
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    teamId: uuid("team_id")
+      .notNull()
+      .references(
+        () => teams.id,
+        { onDelete: "restrict" },
+      ),
+
+    source: text("source")
+      .notNull(),
+
+    sourceTeamId: text("source_team_id")
+      .notNull(),
+
+    sourceName: text("source_name")
+      .notNull(),
+
+    sourceCountry: text("source_country"),
+
+    sourceUrl: text("source_url"),
+
+    matchMethod: text("match_method")
+      .notNull(),
+
+    isVerified: boolean("is_verified")
+      .default(false)
+      .notNull(),
+
+    createdAt: timestamp(
+      "created_at",
+      {
+        withTimezone: true,
+        mode: "date",
+      },
+    )
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp(
+      "updated_at",
+      {
+        withTimezone: true,
+        mode: "date",
+      },
+    )
+      .defaultNow()
+      .notNull(),
+
+    evidence: jsonb("evidence")
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex(
+      "team_source_mappings_source_team_unique",
+    ).on(
+      table.source,
+      table.sourceTeamId,
+    ),
+
+    index(
+      "team_source_mappings_team_idx",
+    ).on(
+      table.teamId,
+    ),
+
+    index(
+      "team_source_mappings_source_name_idx",
+    ).on(
+      table.source,
+      table.sourceName,
+    ),
+
+    check(
+      "team_source_mappings_source_check",
+      sql`length(trim(${table.source})) > 0`,
+    ),
+
+    check(
+      "team_source_mappings_source_team_id_check",
+      sql`length(trim(${table.sourceTeamId})) > 0`,
+    ),
+
+    check(
+      "team_source_mappings_source_name_check",
+      sql`length(trim(${table.sourceName})) > 0`,
+    ),
+
+    check(
+      "team_source_mappings_method_check",
+      sql`${table.matchMethod} IN (
+        'exact',
+        'alias',
+        'manual',
+        'seed'
+      )`,
+    ),
+
+    check(
+      "team_source_mappings_evidence_check",
+      sql`jsonb_typeof(${table.evidence}) = 'object'`,
+    ),
+  ],
+);
+
 export const fixtures = pgTable(
   "fixtures",
   {
