@@ -1,13 +1,19 @@
 import "./load-env";
 
 import assert from "node:assert/strict";
-import { neon } from "@neondatabase/serverless";
+
+import {
+  neon,
+} from "@neondatabase/serverless";
+
+import {
+  getDatabaseUrl,
+} from "../src/lib/env/database";
 
 import {
   evaluatePredictionScope,
+  PREDICTION_SCOPE_VERSION,
 } from "../src/lib/predictions/prediction-scope";
-
-import { getDatabaseUrl } from "../src/lib/env/database";
 
 import {
   fetchFixturesByDate,
@@ -31,45 +37,133 @@ const PREMATCH_STATUSES =
 
 type CanonicalMappedTeam = {
   teamId: string;
-  canonicalName: string;
-  sourceTeamId: string;
-  sourceName: string;
-  country: string | null;
+
+  canonicalName:
+    string;
+
+  sourceTeamId:
+    string;
+
+  sourceName:
+    string;
+
+  country:
+    string | null;
 };
 
 type CommonRating = {
-  snapshotDate: string;
+  snapshotDate:
+    string;
 
-  homeSnapshotId: string;
-  homeRating: number;
-  homeRank: number;
+  homeSnapshotId:
+    string;
 
-  awaySnapshotId: string;
-  awayRating: number;
-  awayRank: number;
+  homeRating:
+    number;
+
+  homeRank:
+    number;
+
+  awaySnapshotId:
+    string;
+
+  awayRating:
+    number;
+
+  awayRank:
+    number;
 };
 
 type Stats = {
-  fixturesReceived: number;
-  futurePrematch: number;
-  missingVerifiedMapping: number;
-  noCommonRating: number;
+  fixturesReceived:
+    number;
 
-  competitionsInserted: number;
-  competitionsExisting: number;
+  prematchStatus:
+    number;
 
-  seasonsInserted: number;
-  seasonsExisting: number;
+  futurePrematch:
+    number;
 
-  fixturesInserted: number;
-  fixturesExisting: number;
+  scopeEligible:
+    number;
+
+  excludedYouth:
+    number;
+
+  excludedWomen:
+    number;
+
+  excludedReserve:
+    number;
+
+  excludedAcademy:
+    number;
+
+  missingVerifiedMapping:
+    number;
+
+  noCommonRating:
+    number;
+
+  competitionsInserted:
+    number;
+
+  competitionsExisting:
+    number;
+
+  seasonsInserted:
+    number;
+
+  seasonsExisting:
+    number;
+
+  fixturesInserted:
+    number;
+
+  fixturesExisting:
+    number;
 };
 
-function requestedDate(): string {
-  return (
+function requestedDate():
+  string {
+  const value =
     process.argv[2]?.trim() ||
-    "2026-09-09"
+    new Date()
+      .toISOString()
+      .slice(
+        0,
+        10,
+      );
+
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(
+      value,
+    )
+  ) {
+    throw new Error(
+      "Date must use YYYY-MM-DD.",
+    );
+  }
+
+  const parsed =
+    new Date(
+      `${value}T00:00:00.000Z`,
+    );
+
+  assert.ok(
+    Number.isFinite(
+      parsed.getTime(),
+    ) &&
+      parsed
+        .toISOString()
+        .slice(
+          0,
+          10,
+        ) === value,
+    "Invalid fixture date.",
   );
+
+  return value;
 }
 
 function slugify(
@@ -109,7 +203,8 @@ function dateOnly(
   value: unknown,
 ): string {
   if (
-    typeof value === "string"
+    typeof value ===
+    "string"
   ) {
     const match =
       /^(\d{4}-\d{2}-\d{2})/.exec(
@@ -122,9 +217,15 @@ function dateOnly(
   }
 
   const parsed =
-    new Date(
-      String(value),
-    );
+    value instanceof Date
+      ? new Date(
+          value.getTime(),
+        )
+      : new Date(
+          String(
+            value,
+          ),
+        );
 
   assert.ok(
     Number.isFinite(
@@ -135,30 +236,31 @@ function dateOnly(
 
   return parsed
     .toISOString()
-    .slice(0, 10);
+    .slice(
+      0,
+      10,
+    );
 }
 
 async function main() {
   const date =
     requestedDate();
 
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(
-      date,
-    )
-  ) {
-    throw new Error(
-      "Date must use YYYY-MM-DD.",
-    );
-  }
-
   const sql =
     neon(
       getDatabaseUrl(),
     );
 
+  console.log(
+    `DictazIQ rated fixture persistence: ${date}`,
+  );
+
+  console.log(
+    `Prediction scope: ${PREDICTION_SCOPE_VERSION}`,
+  );
+
   /*
-   * Resolve the one canonical football sport.
+   * Resolve exactly one canonical football sport.
    */
   const sports =
     await sql`
@@ -198,12 +300,32 @@ async function main() {
     fixturesReceived:
       page.fixtures.length,
 
-    futurePrematch: 0,
+    prematchStatus:
+      0,
+
+    futurePrematch:
+      0,
+
+    scopeEligible:
+      0,
+
+    excludedYouth:
+      0,
+
+    excludedWomen:
+      0,
+
+    excludedReserve:
+      0,
+
+    excludedAcademy:
+      0,
 
     missingVerifiedMapping:
       0,
 
-    noCommonRating: 0,
+    noCommonRating:
+      0,
 
     competitionsInserted:
       0,
@@ -211,13 +333,26 @@ async function main() {
     competitionsExisting:
       0,
 
-    seasonsInserted: 0,
-    seasonsExisting: 0,
+    seasonsInserted:
+      0,
 
-    fixturesInserted: 0,
-    fixturesExisting: 0,
+    seasonsExisting:
+      0,
+
+    fixturesInserted:
+      0,
+
+    fixturesExisting:
+      0,
   };
 
+  /*
+   * Resolve API-Football identity ONLY through
+   * reviewed and verified DB mappings.
+   *
+   * No fuzzy, exact-name or alias discovery is
+   * permitted in the persistence stage.
+   */
   async function resolveApiTeam(
     providerTeamId: number,
   ): Promise<
@@ -257,7 +392,8 @@ async function main() {
       `;
 
     if (
-      rows.length === 0
+      rows.length ===
+      0
     ) {
       return null;
     }
@@ -277,7 +413,8 @@ async function main() {
     return {
       teamId:
         String(
-          rows[0].team_id,
+          rows[0]
+            .team_id,
         ),
 
       canonicalName:
@@ -299,7 +436,8 @@ async function main() {
         ),
 
       country:
-        rows[0].country ===
+        rows[0]
+          .country ===
         null
           ? null
           : String(
@@ -310,18 +448,28 @@ async function main() {
   }
 
   /*
-   * Select the newest FootballDatabase snapshot
-   * shared by BOTH teams and available no later
-   * than fixture kickoff.
+   * Find the newest FootballDatabase rating snapshot
+   * shared by BOTH canonical teams.
    *
-   * This prevents a future weekly rating from
-   * leaking into an older fixture during backfills.
+   * Integrity requirements:
+   *
+   * 1. same source
+   * 2. same weekly snapshot date
+   * 3. non-demo
+   * 4. snapshot date no later than kickoff date
+   * 5. BOTH snapshots actually observed before kickoff
+   *
+   * Rule 5 prevents retrospective leakage where a
+   * historical snapshot date could have been ingested
+   * only after the fixture had already started.
    */
   async function latestCommonRating(
     homeTeamId: string,
     awayTeamId: string,
     kickoffAt: string,
-  ): Promise<CommonRating | null> {
+  ): Promise<
+    CommonRating | null
+  > {
     const rows =
       await sql`
         SELECT
@@ -373,17 +521,28 @@ async function main() {
             false
 
           AND home_rating.snapshot_date <=
-            (${kickoffAt}::timestamptz AT TIME ZONE 'UTC')::date
+            (
+              ${kickoffAt}::timestamptz
+              AT TIME ZONE 'UTC'
+            )::date
+
+          AND home_rating.observed_at <
+            ${kickoffAt}::timestamptz
+
+          AND away_rating.observed_at <
+            ${kickoffAt}::timestamptz
 
         ORDER BY
-          home_rating.snapshot_date
-          DESC
+          home_rating.snapshot_date DESC,
+          home_rating.observed_at DESC,
+          away_rating.observed_at DESC
 
         LIMIT 1
       `;
 
     if (
-      rows.length === 0
+      rows.length ===
+      0
     ) {
       return null;
     }
@@ -391,6 +550,58 @@ async function main() {
     assert.equal(
       rows.length,
       1,
+    );
+
+    const homeRating =
+      Number(
+        rows[0]
+          .home_rating,
+      );
+
+    const awayRating =
+      Number(
+        rows[0]
+          .away_rating,
+      );
+
+    const homeRank =
+      Number(
+        rows[0]
+          .home_rank,
+      );
+
+    const awayRank =
+      Number(
+        rows[0]
+          .away_rank,
+      );
+
+    assert.ok(
+      Number.isFinite(
+        homeRating,
+      ),
+      "Home rating is invalid.",
+    );
+
+    assert.ok(
+      Number.isFinite(
+        awayRating,
+      ),
+      "Away rating is invalid.",
+    );
+
+    assert.ok(
+      Number.isFinite(
+        homeRank,
+      ),
+      "Home ranking position is invalid.",
+    );
+
+    assert.ok(
+      Number.isFinite(
+        awayRank,
+      ),
+      "Away ranking position is invalid.",
     );
 
     return {
@@ -406,17 +617,9 @@ async function main() {
             .home_snapshot_id,
         ),
 
-      homeRating:
-        Number(
-          rows[0]
-            .home_rating,
-        ),
+      homeRating,
 
-      homeRank:
-        Number(
-          rows[0]
-            .home_rank,
-        ),
+      homeRank,
 
       awaySnapshotId:
         String(
@@ -424,17 +627,9 @@ async function main() {
             .away_snapshot_id,
         ),
 
-      awayRating:
-        Number(
-          rows[0]
-            .away_rating,
-        ),
+      awayRating,
 
-      awayRank:
-        Number(
-          rows[0]
-            .away_rank,
-        ),
+      awayRank,
     };
   }
 
@@ -466,11 +661,13 @@ async function main() {
       `;
 
     if (
-      existing.length > 0
+      existing.length >
+      0
     ) {
       assert.equal(
         existing.length,
         1,
+        `Competition provider identity ${providerId} is duplicated.`,
       );
 
       assert.equal(
@@ -486,6 +683,7 @@ async function main() {
         existing[0]
           .is_demo,
         false,
+        `Competition ${fixture.league.name} unexpectedly points to demo data.`,
       );
 
       stats.competitionsExisting +=
@@ -538,7 +736,8 @@ async function main() {
       `;
 
     if (
-      inserted.length === 1
+      inserted.length ===
+      1
     ) {
       stats.competitionsInserted +=
         1;
@@ -550,7 +749,10 @@ async function main() {
 
     const reload =
       await sql`
-        SELECT id
+        SELECT
+          id,
+          sport_id,
+          is_demo
 
         FROM public.competitions
 
@@ -567,6 +769,21 @@ async function main() {
       `Competition ${fixture.league.name} was not persisted.`,
     );
 
+    assert.equal(
+      String(
+        reload[0]
+          .sport_id,
+      ),
+      footballSportId,
+      `Competition ${fixture.league.name} has the wrong sport after reload.`,
+    );
+
+    assert.equal(
+      reload[0]
+        .is_demo,
+      false,
+    );
+
     stats.competitionsExisting +=
       1;
 
@@ -579,7 +796,8 @@ async function main() {
     fixture:
       NormalizedApiFootballFixture,
 
-    competitionId: string,
+    competitionId:
+      string,
   ): Promise<string> {
     const label =
       String(
@@ -588,7 +806,8 @@ async function main() {
 
     const existing =
       await sql`
-        SELECT id
+        SELECT
+          id
 
         FROM public.seasons
 
@@ -600,11 +819,13 @@ async function main() {
       `;
 
     if (
-      existing.length > 0
+      existing.length >
+      0
     ) {
       assert.equal(
         existing.length,
         1,
+        `Season ${label} is duplicated for competition ${competitionId}.`,
       );
 
       stats.seasonsExisting +=
@@ -616,10 +837,11 @@ async function main() {
     }
 
     /*
-     * API-Football's fixture payload gives the
-     * season year but not authoritative season
-     * boundaries here, so dates remain NULL
-     * rather than inventing them.
+     * API-Football fixture payload gives a season
+     * identifier/year, but this import does not have
+     * authoritative competition season boundaries.
+     *
+     * Keep them NULL rather than inventing dates.
      */
     const inserted =
       await sql`
@@ -646,7 +868,8 @@ async function main() {
       `;
 
     if (
-      inserted.length === 1
+      inserted.length ===
+      1
     ) {
       stats.seasonsInserted +=
         1;
@@ -658,7 +881,8 @@ async function main() {
 
     const reload =
       await sql`
-        SELECT id
+        SELECT
+          id
 
         FROM public.seasons
 
@@ -687,12 +911,17 @@ async function main() {
     fixture:
       NormalizedApiFootballFixture,
 
-    seasonId: string,
+    seasonId:
+      string,
 
-    home: CanonicalMappedTeam,
-    away: CanonicalMappedTeam,
+    home:
+      CanonicalMappedTeam,
+
+    away:
+      CanonicalMappedTeam,
   ): Promise<{
     id: string;
+
     status:
       | "inserted"
       | "existing";
@@ -707,6 +936,18 @@ async function main() {
       String(
         fixture.fixtureId,
       );
+
+    const kickoff =
+      new Date(
+        fixture.kickoffAt,
+      );
+
+    assert.ok(
+      Number.isFinite(
+        kickoff.getTime(),
+      ),
+      `Fixture ${providerId} has invalid kickoff time.`,
+    );
 
     const slug =
       slugify(
@@ -790,12 +1031,17 @@ async function main() {
         SELECT
           id,
           season_id,
+
           home_team_id,
           away_team_id,
+
           provider,
           provider_id,
+
           is_demo,
+
           kickoff_at,
+
           status,
           provider_status
 
@@ -818,13 +1064,11 @@ async function main() {
       rows[0];
 
     /*
-     * For this initial immutable pre-match import,
-     * an existing fixture must still represent the
-     * exact identity we previously stored.
+     * Existing rows must represent the exact same
+     * fixture identity.
      *
-     * Rescheduling/status refresh will be handled
-     * separately rather than silently rewriting
-     * prediction-time fixture state here.
+     * We do not silently mutate an existing
+     * prediction-time fixture here.
      */
     assert.equal(
       String(
@@ -851,8 +1095,23 @@ async function main() {
     );
 
     assert.equal(
+      String(
+        stored.provider,
+      ),
+      API_SOURCE,
+    );
+
+    assert.equal(
+      String(
+        stored.provider_id,
+      ),
+      providerId,
+    );
+
+    assert.equal(
       stored.is_demo,
       false,
+      `Fixture ${providerId} unexpectedly points to demo data.`,
     );
 
     assert.equal(
@@ -861,9 +1120,7 @@ async function main() {
           stored.kickoff_at,
         ),
       ).toISOString(),
-      new Date(
-        fixture.kickoffAt,
-      ).toISOString(),
+      kickoff.toISOString(),
       `Fixture ${providerId} kickoff mismatch.`,
     );
 
@@ -886,7 +1143,8 @@ async function main() {
       fixture:
         NormalizedApiFootballFixture;
 
-      fixtureId: string;
+      fixtureId:
+        string;
 
       home:
         CanonicalMappedTeam;
@@ -898,8 +1156,8 @@ async function main() {
         CommonRating;
 
       databaseStatus:
-        "inserted" |
-        "existing";
+        | "inserted"
+        | "existing";
     }> = [];
 
   const now =
@@ -909,6 +1167,9 @@ async function main() {
     const fixture
     of page.fixtures
   ) {
+    /*
+     * Only genuine pre-match provider states.
+     */
     if (
       !PREMATCH_STATUSES.has(
         fixture.status.short,
@@ -917,21 +1178,13 @@ async function main() {
       continue;
     }
 
-    const scope =
-  evaluatePredictionScope(
-    fixture,
-  );
-
-if (
-  !scope.eligible
-) {
-  continue;
-}
+    stats.prematchStatus +=
+      1;
 
     const kickoffMs =
-      new Date(
+      Date.parse(
         fixture.kickoffAt,
-      ).getTime();
+      );
 
     if (
       !Number.isFinite(
@@ -945,6 +1198,59 @@ if (
     stats.futurePrematch +=
       1;
 
+    /*
+     * DictazIQ Core v1 population:
+     * senior men's first-team football.
+     *
+     * Scope is enforced BEFORE identity resolution
+     * and BEFORE any database write.
+     */
+    const scope =
+      evaluatePredictionScope(
+        fixture,
+      );
+
+    if (
+      !scope.eligible
+    ) {
+      if (
+        scope.reason ===
+        "youth"
+      ) {
+        stats.excludedYouth +=
+          1;
+      }
+
+      if (
+        scope.reason ===
+        "women"
+      ) {
+        stats.excludedWomen +=
+          1;
+      }
+
+      if (
+        scope.reason ===
+        "reserve"
+      ) {
+        stats.excludedReserve +=
+          1;
+      }
+
+      if (
+        scope.reason ===
+        "academy"
+      ) {
+        stats.excludedAcademy +=
+          1;
+      }
+
+      continue;
+    }
+
+    stats.scopeEligible +=
+      1;
+
     const home =
       await resolveApiTeam(
         fixture.home.id,
@@ -956,10 +1262,9 @@ if (
       );
 
     /*
-     * Database writes require persisted,
-     * reviewed source mappings.
-     *
-     * No exact/conservative name matching here.
+     * A persistence write requires BOTH provider
+     * identities to have already been reviewed and
+     * verified.
      */
     if (
       !home ||
@@ -1024,6 +1329,7 @@ if (
         stored.id,
 
       home,
+
       away,
 
       rating:
@@ -1035,31 +1341,52 @@ if (
   }
 
   console.log("");
+
   console.log(
     "PASS: only future pre-match API-Football fixtures considered.",
   );
 
   console.log(
-    "PASS: database writes required verified API-Football team mappings.",
+    `PASS: prediction scope ${PREDICTION_SCOPE_VERSION} enforced before writes.`,
   );
 
   console.log(
-    "PASS: every persisted fixture has a common pre-kickoff FootballDatabase rating snapshot.",
+    "PASS: database writes require two verified API-Football team mappings.",
   );
 
   console.log(
-    "PASS: competitions and seasons persisted idempotently.",
+    "PASS: every persisted fixture uses a common FootballDatabase weekly rating snapshot.",
   );
 
   console.log(
-    "PASS: fixture provider identity persisted idempotently.",
+    "PASS: both rating snapshots must have been observed before kickoff.",
   );
 
   console.log(
-    "PASS: no youth/reserve/name-fuzzy mapping was performed during writes.",
+    "PASS: competitions and seasons persist idempotently.",
+  );
+
+  console.log(
+    "PASS: fixture provider identity persists idempotently.",
+  );
+
+  console.log(
+    "PASS: no fuzzy or automatic provider identity promotion occurs during persistence.",
   );
 
   console.log("");
+
+  console.log(
+    "========================================",
+  );
+
+  console.log(
+    "PERSISTENCE SUMMARY",
+  );
+
+  console.log(
+    "========================================",
+  );
 
   console.log(
     `Date: ${date}`,
@@ -1070,15 +1397,41 @@ if (
   );
 
   console.log(
+    `Provider pre-match status fixtures: ${stats.prematchStatus}`,
+  );
+
+  console.log(
     `Future pre-match fixtures: ${stats.futurePrematch}`,
   );
 
   console.log(
-    `Skipped without two verified mappings: ${stats.missingVerifiedMapping}`,
+    `Scope-eligible senior fixtures: ${stats.scopeEligible}`,
   );
 
   console.log(
-    `Skipped without common rating: ${stats.noCommonRating}`,
+    `Excluded youth fixtures: ${stats.excludedYouth}`,
+  );
+
+  console.log(
+    `Excluded women's fixtures: ${stats.excludedWomen}`,
+  );
+
+  console.log(
+    `Excluded reserve/II fixtures: ${stats.excludedReserve}`,
+  );
+
+  console.log(
+    `Excluded academy fixtures: ${stats.excludedAcademy}`,
+  );
+
+  console.log("");
+
+  console.log(
+    `Fixtures skipped without two verified API mappings: ${stats.missingVerifiedMapping}`,
+  );
+
+  console.log(
+    `Fixtures skipped without common pre-kickoff rating: ${stats.noCommonRating}`,
   );
 
   console.log("");
@@ -1118,6 +1471,15 @@ if (
   );
 
   console.log("");
+
+  if (
+    persisted.length ===
+    0
+  ) {
+    console.log(
+      "None.",
+    );
+  }
 
   for (
     const item
@@ -1177,18 +1539,26 @@ if (
     console.log("");
   }
 
+  /*
+   * In the production daily pipeline, reaching this
+   * stage with zero persisted fixtures is a blocking
+   * coverage failure rather than a silent success.
+   */
   assert.ok(
-    persisted.length > 0,
+    persisted.length >
+      0,
     "No rated fixtures were persisted.",
   );
 
   console.log(
-    `PASS: ${persisted.length} real rated fixtures are now available in DictazIQ.`,
+    `PASS: ${persisted.length} real rated fixture(s) are available for downstream DictazIQ analysis.`,
   );
 }
 
 main().catch(
-  (error: unknown) => {
+  (
+    error: unknown,
+  ) => {
     if (
       error instanceof
       assert.AssertionError
@@ -1198,12 +1568,14 @@ main().catch(
       );
     } else {
       console.error(
-        error instanceof Error
+        error instanceof
+        Error
           ? `Rated fixture ingestion failed: ${error.message}`
           : "Rated fixture ingestion failed.",
       );
     }
 
-    process.exitCode = 1;
+    process.exitCode =
+      1;
   },
 );

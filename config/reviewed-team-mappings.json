@@ -1,6 +1,6 @@
 {
   "version": "dictaziq-reviewed-team-mappings-v0.1",
-  "reviewedAt": "2026-09-09",
+  "reviewedAt": "2026-09-10",
   "mappings": [
     {
       "provider": "api-football",
@@ -123,7 +123,7 @@
       "method": "alias",
       "reason": "Same Sporting first team under provider-specific naming."
     },
-        {
+    {
       "provider": "football-data.org",
       "providerTeamId": 610,
       "providerName": "Galatasaray SK",
@@ -131,6 +131,7 @@
       "method": "alias",
       "reason": "Same Galatasaray first team under provider-specific naming."
     },
+
     {
       "provider": "api-football",
       "providerTeamId": 611,
@@ -162,6 +163,39 @@
       "footballDatabaseName": "Shakhtar Donetsk",
       "method": "exact",
       "reason": "Exact senior first-team identity confirmed by the 2026-09-10 rated fixture scan."
+    },
+
+    {
+      "provider": "football-data.org",
+      "providerTeamId": 613,
+      "providerName": "Fenerbahçe SK",
+      "footballDatabaseName": "Fenerbahçe",
+      "method": "alias",
+      "reason": "Same Fenerbahçe senior first team; football-data.org CL provider identity resolved on 2026-09-10."
+    },
+    {
+      "provider": "football-data.org",
+      "providerTeamId": 100,
+      "providerName": "AS Roma",
+      "footballDatabaseName": "AS Roma",
+      "method": "exact",
+      "reason": "Exact AS Roma senior first-team identity resolved from football-data.org CL data on 2026-09-10."
+    },
+    {
+      "provider": "football-data.org",
+      "providerTeamId": 674,
+      "providerName": "PSV",
+      "footballDatabaseName": "PSV Eindhoven",
+      "method": "alias",
+      "reason": "Same PSV Eindhoven senior first team; football-data.org team identity is PSV id 674."
+    },
+    {
+      "provider": "football-data.org",
+      "providerTeamId": 1887,
+      "providerName": "FK Shakhtar Donetsk",
+      "footballDatabaseName": "Shakhtar Donetsk",
+      "method": "alias",
+      "reason": "Same Shakhtar Donetsk senior first team; football-data.org CL provider identity resolved on 2026-09-10."
     }
   ]
 }
