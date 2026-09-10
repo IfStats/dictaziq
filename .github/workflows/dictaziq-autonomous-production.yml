@@ -1,0 +1,182 @@
+name: DictazIQ Autonomous Production
+
+on:
+  schedule:
+    # Current-day production lifecycle.
+    # Offset from the top of the hour to reduce GitHub Actions scheduler congestion.
+    - cron: "17 * * * *"
+
+    # Seed tomorrow's fixtures and immutable baselines before the next UTC day begins.
+    - cron: "37 12 * * *"
+
+    # Refresh the current FootballDatabase world-rating snapshot once a week.
+    - cron: "47 4 * * 1"
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Worker mode"
+        required: true
+        default: "current"
+        type: choice
+        options:
+          - current
+          - tomorrow
+          - ratings
+
+      date:
+        description: "Optional YYYY-MM-DD override for current/tomorrow modes"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dictaziq-autonomous-production
+  cancel-in-progress: false
+
+jobs:
+  autonomous-production:
+    name: DictazIQ autonomous worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}
+      FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_LLM_MODEL: ${{ vars.OPENAI_LLM_MODEL }}
+
+    steps:
+      - name: Checkout production source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24.18.0"
+          package-manager-cache: false
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Resolve worker mode and date
+        id: resolve
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE_EXPRESSION: ${{ github.event.schedule }}
+          MANUAL_MODE: ${{ inputs.mode }}
+          MANUAL_DATE: ${{ inputs.date }}
+        run: |
+          set -euo pipefail
+
+          mode="current"
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            mode="${MANUAL_MODE:-current}"
+          else
+            case "$SCHEDULE_EXPRESSION" in
+              "37 12 * * *")
+                mode="tomorrow"
+                ;;
+              "47 4 * * 1")
+                mode="ratings"
+                ;;
+              *)
+                mode="current"
+                ;;
+            esac
+          fi
+
+          if [[ "$mode" == "ratings" ]]; then
+            run_date="$(date -u +%F)"
+          elif [[ -n "${MANUAL_DATE:-}" ]]; then
+            if [[ ! "$MANUAL_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+              echo "Manual date must use YYYY-MM-DD." >&2
+              exit 1
+            fi
+
+            normalized="$(date -u -d "$MANUAL_DATE" +%F 2>/dev/null || true)"
+
+            if [[ "$normalized" != "$MANUAL_DATE" ]]; then
+              echo "Manual date is invalid." >&2
+              exit 1
+            fi
+
+            run_date="$MANUAL_DATE"
+          elif [[ "$mode" == "tomorrow" ]]; then
+            run_date="$(date -u -d 'tomorrow' +%F)"
+          else
+            run_date="$(date -u +%F)"
+          fi
+
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "date=$run_date" >> "$GITHUB_OUTPUT"
+
+          echo "Worker mode: $mode"
+          echo "Worker date: $run_date"
+
+      - name: Verify required secrets
+        shell: bash
+        env:
+          WORKER_MODE: ${{ steps.resolve.outputs.mode }}
+        run: |
+          set -euo pipefail
+
+          missing=0
+
+          require_secret() {
+            local name="$1"
+            local value="$2"
+
+            if [[ -z "$value" ]]; then
+              echo "Missing required GitHub Actions secret: $name" >&2
+              missing=1
+            fi
+          }
+
+          require_secret "DATABASE_URL" "${DATABASE_URL:-}"
+
+          if [[ "$WORKER_MODE" != "ratings" ]]; then
+            require_secret "API_SPORTS_KEY" "${API_SPORTS_KEY:-}"
+            require_secret "FOOTBALL_DATA_API_KEY" "${FOOTBALL_DATA_API_KEY:-}"
+            require_secret "OPENAI_API_KEY" "${OPENAI_API_KEY:-}"
+          fi
+
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+
+          echo "Required secret presence verified without printing secret values."
+
+      - name: Verify database connectivity
+        run: npx tsx scripts/check-db.ts
+
+      - name: Refresh FootballDatabase ratings
+        if: steps.resolve.outputs.mode == 'ratings'
+        run: npx tsx scripts/ingest-football-database-ratings.ts 20
+
+      - name: Ingest API-Football fixtures
+        if: steps.resolve.outputs.mode != 'ratings'
+        run: npx tsx scripts/ingest-api-football-daily-fixtures-v0.2.ts "${{ steps.resolve.outputs.date }}"
+
+      - name: Execute autonomous production cycle
+        if: steps.resolve.outputs.mode != 'ratings'
+        run: npx tsx scripts/production-cycle-v0.3.ts "${{ steps.resolve.outputs.date }}" --execute
+
+      - name: Worker summary
+        if: always()
+        shell: bash
+        env:
+          WORKER_MODE: ${{ steps.resolve.outputs.mode }}
+          WORKER_DATE: ${{ steps.resolve.outputs.date }}
+        run: |
+          echo "DictazIQ autonomous worker finished."
+          echo "Mode: ${WORKER_MODE:-unresolved}"
+          echo "Date: ${WORKER_DATE:-unresolved}"
+          echo "Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
