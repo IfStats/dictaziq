@@ -25,7 +25,9 @@ function isRecord(
 function asRecord(
   value: unknown,
 ): Record<string, unknown> {
-  return isRecord(value)
+  return isRecord(
+    value,
+  )
     ? value
     : {};
 }
@@ -44,14 +46,12 @@ function text(
 function numberValue(
   value: unknown,
 ): number | null {
-  if (
+  return (
     typeof value === "number" &&
     Number.isFinite(value)
-  ) {
-    return value;
-  }
-
-  return null;
+  )
+    ? value
+    : null;
 }
 
 function timestamp(
@@ -82,8 +82,14 @@ function titleCase(
   value: string,
 ): string {
   return value
-    .replaceAll("_", " ")
-    .replaceAll("-", " ")
+    .replaceAll(
+      "_",
+      " ",
+    )
+    .replaceAll(
+      "-",
+      " ",
+    )
     .replace(
       /\b\w/g,
       (character) =>
@@ -96,7 +102,9 @@ function forecastLabel(
   home: string,
   away: string,
 ): string {
-  switch (selection) {
+  switch (
+    selection
+  ) {
     case "home":
       return `${home} Win`;
 
@@ -114,7 +122,9 @@ function forecastLabel(
 function routeLabel(
   route: string | null,
 ): string {
-  switch (route) {
+  switch (
+    route
+  ) {
     case "mathematical":
       return "Mathematical";
 
@@ -129,7 +139,9 @@ function routeLabel(
 function goalsLabel(
   value: string | null,
 ): string | null {
-  switch (value) {
+  switch (
+    value
+  ) {
     case "over_2_5":
     case "over_2_5_support":
       return "Over 2.5";
@@ -141,10 +153,6 @@ function goalsLabel(
     case "conflict":
       return "Goals conflict";
 
-    case "neutral":
-    case "none":
-      return null;
-
     default:
       return null;
   }
@@ -153,7 +161,9 @@ function goalsLabel(
 function bttsLabel(
   value: string | null,
 ): string | null {
-  switch (value) {
+  switch (
+    value
+  ) {
     case "yes":
     case "yes_support":
       return "BTTS — Yes";
@@ -161,10 +171,6 @@ function bttsLabel(
     case "no":
     case "no_support":
       return "BTTS — No";
-
-    case "neutral":
-    case "none":
-      return null;
 
     default:
       return null;
@@ -174,7 +180,9 @@ function bttsLabel(
 function statusLabel(
   value: string,
 ): string {
-  switch (value) {
+  switch (
+    value
+  ) {
     case "scheduled":
       return "Upcoming";
 
@@ -220,13 +228,8 @@ Promise<Row[]> {
           AS fixture_slug,
 
         fixture.kickoff_at,
-
         fixture.status,
-
-        fixture.provider_status,
-
         fixture.home_score,
-
         fixture.away_score,
 
         home.name
@@ -241,28 +244,14 @@ Promise<Row[]> {
         competition.country
           AS competition_country,
 
-        baseline.baseline_prediction_id,
-
         baseline.model_version,
-
         baseline.route,
-
-        baseline.route_reason,
-
-        baseline.generated_at,
-
-        baseline.published_at,
 
         baseline.output
           AS baseline_output,
 
         revision.id
           AS revision_id,
-
-        revision.revision_number,
-
-        revision.reason
-          AS revision_reason,
 
         revision.selection
           AS revision_selection,
@@ -271,12 +260,7 @@ Promise<Row[]> {
           AS revision_confidence,
 
         revision.evidence_grade
-          AS revision_evidence_grade,
-
-        revision.lineup_state,
-
-        revision.published_at
-          AS revision_published_at
+          AS revision_evidence_grade
 
       FROM public.production_forecast_baselines_v01
         AS baseline
@@ -309,20 +293,9 @@ Promise<Row[]> {
       LEFT JOIN LATERAL (
         SELECT
           revision_row.id,
-
-          revision_row.revision_number,
-
-          revision_row.reason,
-
           revision_row.selection,
-
           revision_row.confidence,
-
-          revision_row.evidence_grade,
-
-          revision_row.lineup_state,
-
-          revision_row.published_at
+          revision_row.evidence_grade
 
         FROM public.forecast_revisions
           AS revision_row
@@ -386,55 +359,23 @@ export default async function TodayPredictions() {
     );
 
     return (
-      <main className="min-h-screen bg-slate-950 text-white">
-        <div className="mx-auto max-w-6xl px-4 py-12">
-          <h1 className="text-3xl font-black">
-            Dictaz
-            <span className="text-blue-400">
-              IQ
-            </span>
-          </h1>
+      <section className="rounded-3xl border border-slate-800 bg-slate-900 p-7">
+        <h2 className="text-lg font-black">
+          Prediction data temporarily unavailable
+        </h2>
 
-          <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="font-bold">
-              Prediction data temporarily unavailable
-            </h2>
-
-            <p className="mt-2 text-sm text-slate-400">
-              The production forecast store could not be read.
-            </p>
-          </div>
-        </div>
-      </main>
+        <p className="mt-2 text-sm text-slate-400">
+          The authoritative production forecast store could not be read.
+        </p>
+      </section>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <header className="border-b border-slate-800">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
-          <div>
-            <div className="text-2xl font-black tracking-tight">
-              Dictaz
-              <span className="text-blue-400">
-                IQ
-              </span>
-            </div>
-
-            <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
-              Football Intelligence
-            </p>
-          </div>
-
-          <span className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-300">
-            Production
-          </span>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-4 py-10">
-        <section className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-400">
+    <section>
+      <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-400">
             DictazIQ Predictions
           </p>
 
@@ -446,397 +387,371 @@ export default async function TodayPredictions() {
             Published pre-match forecasts from the authoritative
             DictazIQ production pipeline.
           </p>
-        </section>
+        </div>
 
-        {matches.length === 0 ? (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-8">
-            <h2 className="font-bold">
-              No published forecasts today
-            </h2>
+        <div className="rounded-full border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-400">
+          {matches.length} published
+        </div>
+      </div>
 
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Fixtures will appear here after an authoritative
-              DictazIQ baseline has been published before kickoff.
-            </p>
-          </section>
-        ) : (
-          <section className="grid gap-5 lg:grid-cols-2">
-            {matches.map(
-              (
-                row,
-              ) => {
-                const fixtureId =
-                  String(
-                    row.fixture_id,
-                  );
+      {matches.length ===
+      0 ? (
+        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8">
+          <h2 className="font-bold">
+            No published forecasts today
+          </h2>
 
-                const slug =
-                  String(
-                    row.fixture_slug,
-                  );
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            Fixtures appear here after an authoritative
+            DictazIQ baseline has been published before kickoff.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-2">
+          {matches.map(
+            (
+              row,
+            ) => {
+              const fixtureId =
+                String(
+                  row.fixture_id,
+                );
 
-                const homeName =
+              const slug =
+                String(
+                  row.fixture_slug,
+                );
+
+              const homeName =
+                text(
+                  row.home_name,
+                ) ??
+                "Home";
+
+              const awayName =
+                text(
+                  row.away_name,
+                ) ??
+                "Away";
+
+              const competition =
+                text(
+                  row.competition_name,
+                ) ??
+                "Football";
+
+              const country =
+                text(
+                  row.competition_country,
+                );
+
+              const kickoffAt =
+                timestamp(
+                  row.kickoff_at,
+                );
+
+              const status =
+                text(
+                  row.status,
+                ) ??
+                "unknown";
+
+              const baseline =
+                asRecord(
+                  row.baseline_output,
+                );
+
+              const marketEvidence =
+                asRecord(
+                  baseline.marketEvidence,
+                );
+
+              const goalsEvidence =
+                asRecord(
+                  marketEvidence.goals,
+                );
+
+              const bttsEvidence =
+                asRecord(
+                  marketEvidence.btts,
+                );
+
+              const activeForecast =
+                text(
+                  row.revision_selection,
+                ) ??
+                text(
+                  baseline.forecast,
+                );
+
+              const activeConfidence =
+                text(
+                  row.revision_confidence,
+                ) ??
+                text(
+                  baseline.confidence,
+                );
+
+              const activeGrade =
+                text(
+                  row.revision_evidence_grade,
+                ) ??
+                text(
+                  baseline.evidenceGrade,
+                );
+
+              const ratingGap =
+                numberValue(
+                  baseline.ratingGap,
+                );
+
+              const goals =
+                goalsLabel(
                   text(
-                    row.home_name,
+                    baseline.goalsView,
                   ) ??
-                  "Home";
-
-                const awayName =
                   text(
-                    row.away_name,
+                    goalsEvidence.signal,
+                  ),
+                );
+
+              const btts =
+                bttsLabel(
+                  text(
+                    baseline.bttsView,
                   ) ??
-                  "Away";
-
-                const competition =
                   text(
-                    row.competition_name,
-                  ) ??
-                  "Football";
+                    bttsEvidence.signal,
+                  ),
+                );
 
-                const country =
-                  text(
-                    row.competition_country,
-                  );
+              const route =
+                text(
+                  row.route,
+                );
 
-                const kickoffAt =
-                  timestamp(
-                    row.kickoff_at,
-                  );
+              const revisionId =
+                text(
+                  row.revision_id,
+                );
 
-                const status =
-                  text(
-                    row.status,
-                  ) ??
-                  "unknown";
+              const homeScore =
+                numberValue(
+                  row.home_score,
+                );
 
-                const baseline =
-                  asRecord(
-                    row.baseline_output,
-                  );
+              const awayScore =
+                numberValue(
+                  row.away_score,
+                );
 
-                const marketEvidence =
-                  asRecord(
-                    baseline.marketEvidence,
-                  );
+              return (
+                <Link
+                  key={
+                    fixtureId
+                  }
+                  href={`/football/matches/${slug}`}
+                  aria-label={`View ${homeName} vs ${awayName} match intelligence`}
+                  className="group block rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                >
+                  <article className="h-full overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 transition duration-200 group-hover:-translate-y-0.5 group-hover:border-blue-500/50">
+                    <div className="border-b border-slate-800 p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-wider text-blue-400">
+                            {
+                              competition
+                            }
+                          </p>
 
-                const goalsEvidence =
-                  asRecord(
-                    marketEvidence.goals,
-                  );
-
-                const bttsEvidence =
-                  asRecord(
-                    marketEvidence.btts,
-                  );
-
-                const baselineForecast =
-                  text(
-                    baseline.forecast,
-                  );
-
-                const baselineConfidence =
-                  text(
-                    baseline.confidence,
-                  );
-
-                const baselineGrade =
-                  text(
-                    baseline.evidenceGrade,
-                  );
-
-                const activeForecast =
-                  text(
-                    row.revision_selection,
-                  ) ??
-                  baselineForecast;
-
-                const activeConfidence =
-                  text(
-                    row.revision_confidence,
-                  ) ??
-                  baselineConfidence;
-
-                const activeGrade =
-                  text(
-                    row.revision_evidence_grade,
-                  ) ??
-                  baselineGrade;
-
-                const ratingGap =
-                  numberValue(
-                    baseline.ratingGap,
-                  );
-
-                const goals =
-                  goalsLabel(
-                    text(
-                      baseline.goalsView,
-                    ) ??
-                    text(
-                      goalsEvidence.signal,
-                    ),
-                  );
-
-                const btts =
-                  bttsLabel(
-                    text(
-                      baseline.bttsView,
-                    ) ??
-                    text(
-                      bttsEvidence.signal,
-                    ),
-                  );
-
-                const route =
-                  text(
-                    row.route,
-                  );
-
-                const revisionId =
-                  text(
-                    row.revision_id,
-                  );
-
-                const homeScore =
-                  numberValue(
-                    row.home_score,
-                  );
-
-                const awayScore =
-                  numberValue(
-                    row.away_score,
-                  );
-
-                return (
-                  <Link
-                    key={
-                      fixtureId
-                    }
-                    href={`/football/matches/${slug}`}
-                    aria-label={`View ${homeName} vs ${awayName} match intelligence`}
-                    className="group block rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
-                  >
-                    <article className="h-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 transition duration-200 group-hover:-translate-y-0.5 group-hover:border-blue-500/60 group-hover:shadow-xl group-hover:shadow-blue-950/20">
-                      <div className="border-b border-slate-800 px-5 py-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-blue-400">
+                          {country && (
+                            <p className="mt-1 text-xs text-slate-500">
                               {
-                                competition
+                                country
                               }
                             </p>
-
-                            {country && (
-                              <p className="mt-1 text-xs text-slate-500">
-                                {
-                                  country
-                                }
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="flex gap-2">
-                            {revisionId && (
-                              <span className="rounded-full border border-blue-900 bg-blue-950 px-2 py-1 text-[10px] font-bold uppercase text-blue-300">
-                                Updated
-                              </span>
-                            )}
-
-                            <span
-                              className={
-                                status ===
-                                "live"
-                                  ? "rounded-full bg-red-950 px-3 py-1 text-xs font-black uppercase text-red-300"
-                                  : "rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold uppercase text-slate-300"
-                              }
-                            >
-                              {
-                                statusLabel(
-                                  status,
-                                )
-                              }
-                            </span>
-                          </div>
+                          )}
                         </div>
 
-                        <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                          <p className="text-right text-lg font-black">
-                            {
-                              homeName
-                            }
-                          </p>
-
-                          {homeScore !==
-                            null &&
-                          awayScore !==
-                            null ? (
-                            <div className="text-xl font-black tabular-nums">
-                              {
-                                homeScore
-                              }
-                              <span className="mx-1 text-slate-600">
-                                –
-                              </span>
-                              {
-                                awayScore
-                              }
-                            </div>
-                          ) : (
-                            <span className="text-xs font-bold text-slate-600">
-                              VS
+                        <div className="flex gap-2">
+                          {revisionId && (
+                            <span className="rounded-full border border-blue-900 bg-blue-950 px-2 py-1 text-[10px] font-black uppercase text-blue-300">
+                              Updated
                             </span>
                           )}
 
-                          <p className="text-lg font-black">
-                            {
-                              awayName
+                          <span
+                            className={
+                              status ===
+                              "live"
+                                ? "rounded-full bg-red-950 px-3 py-1 text-xs font-black uppercase text-red-300"
+                                : "rounded-full bg-slate-800 px-3 py-1 text-xs font-bold uppercase text-slate-300"
                             }
-                          </p>
-                        </div>
-
-                        <div className="mt-4 text-center text-sm text-slate-400">
-                          {kickoffAt ? (
-                            <LocalTime
-                              value={
-                                kickoffAt
-                              }
-                            />
-                          ) : (
-                            "Kickoff unavailable"
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="space-y-5 p-5">
-                        <div>
-                          <p className="text-xs uppercase tracking-wider text-slate-500">
-                            DictazIQ Forecast
-                          </p>
-
-                          <p className="mt-2 text-xl font-black text-emerald-400">
+                          >
                             {
-                              forecastLabel(
-                                activeForecast,
-                                homeName,
-                                awayName,
+                              statusLabel(
+                                status,
                               )
                             }
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                        <p className="text-right text-lg font-black">
+                          {
+                            homeName
+                          }
+                        </p>
+
+                        {homeScore !==
+                          null &&
+                        awayScore !==
+                          null ? (
+                          <div className="text-xl font-black tabular-nums">
+                            {
+                              homeScore
+                            }
+                            <span className="mx-1 text-slate-600">
+                              –
+                            </span>
+                            {
+                              awayScore
+                            }
+                          </div>
+                        ) : (
+                          <span className="text-xs font-black text-slate-600">
+                            VS
+                          </span>
+                        )}
+
+                        <p className="text-lg font-black">
+                          {
+                            awayName
+                          }
+                        </p>
+                      </div>
+
+                      <div className="mt-4 text-center text-sm text-slate-400">
+                        {kickoffAt ? (
+                          <LocalTime
+                            value={
+                              kickoffAt
+                            }
+                          />
+                        ) : (
+                          "Kickoff unavailable"
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-5 p-5">
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-slate-500">
+                          DictazIQ Forecast
+                        </p>
+
+                        <p className="mt-2 text-xl font-black text-emerald-400">
+                          {
+                            forecastLabel(
+                              activeForecast,
+                              homeName,
+                              awayName,
+                            )
+                          }
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-xl bg-slate-950 p-3">
+                          <p className="text-[10px] uppercase text-slate-500">
+                            Confidence
+                          </p>
+
+                          <p className="mt-2 text-sm font-black">
+                            {activeConfidence
+                              ? titleCase(
+                                  activeConfidence,
+                                )
+                              : "—"}
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="rounded-xl bg-slate-950 p-3">
-                            <p className="text-[10px] uppercase tracking-wider text-slate-500">
-                              Confidence
-                            </p>
+                        <div className="rounded-xl bg-slate-950 p-3">
+                          <p className="text-[10px] uppercase text-slate-500">
+                            Evidence
+                          </p>
 
-                            <p className="mt-2 text-sm font-black">
-                              {activeConfidence
-                                ? titleCase(
-                                    activeConfidence,
-                                  )
-                                : "—"}
-                            </p>
-                          </div>
-
-                          <div className="rounded-xl bg-slate-950 p-3">
-                            <p className="text-[10px] uppercase tracking-wider text-slate-500">
-                              Evidence
-                            </p>
-
-                            <p className="mt-2 text-sm font-black">
-                              {
-                                activeGrade ??
-                                "—"
-                              }
-                            </p>
-                          </div>
-
-                          <div className="rounded-xl bg-slate-950 p-3">
-                            <p className="text-[10px] uppercase tracking-wider text-slate-500">
-                              Rating Gap
-                            </p>
-
-                            <p className="mt-2 text-sm font-black tabular-nums">
-                              {ratingGap ===
-                              null
-                                ? "—"
-                                : ratingGap >
-                                    0
-                                  ? `+${ratingGap}`
-                                  : String(
-                                      ratingGap,
-                                    )}
-                            </p>
-                          </div>
+                          <p className="mt-2 text-sm font-black">
+                            {
+                              activeGrade ??
+                              "—"
+                            }
+                          </p>
                         </div>
 
-                        {(goals ||
-                          btts) && (
-                          <div>
-                            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                              Market Intelligence
-                            </p>
+                        <div className="rounded-xl bg-slate-950 p-3">
+                          <p className="text-[10px] uppercase text-slate-500">
+                            Rating Gap
+                          </p>
 
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {goals && (
-                                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-300">
-                                  {
-                                    goals
-                                  }
-                                </span>
-                              )}
-
-                              {btts && (
-                                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-300">
-                                  {
-                                    btts
-                                  }
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex items-end justify-between gap-4 border-t border-slate-800 pt-4">
-                          <div className="text-xs text-slate-500">
-                            <div>
-                              Route:{" "}
-                              {
-                                routeLabel(
-                                  route,
-                                )
-                              }
-                            </div>
-
-                            <div className="mt-1">
-                              Published before kickoff
-                            </div>
-                          </div>
-
-                          <div className="shrink-0 text-xs font-black text-blue-400 transition group-hover:text-blue-300">
-                            Match Intelligence
-                            <span className="ml-1 inline-block transition-transform group-hover:translate-x-1">
-                              →
-                            </span>
-                          </div>
+                          <p className="mt-2 text-sm font-black">
+                            {ratingGap ===
+                            null
+                              ? "—"
+                              : ratingGap >
+                                  0
+                                ? `+${ratingGap}`
+                                : String(
+                                    ratingGap,
+                                  )}
+                          </p>
                         </div>
                       </div>
-                    </article>
-                  </Link>
-                );
-              },
-            )}
-          </section>
-        )}
 
-        <footer className="mt-10 border-t border-slate-800 pt-6 text-xs leading-5 text-slate-500">
-          DictazIQ forecasts are experimental and uncertain.
-          Market signals are analytical evidence, not calibrated
-          probabilities. Published forecasts remain available for
-          post-match accountability.
-        </footer>
-      </main>
-    </div>
+                      {(goals ||
+                        btts) && (
+                        <div className="flex flex-wrap gap-2">
+                          {goals && (
+                            <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+                              {
+                                goals
+                              }
+                            </span>
+                          )}
+
+                          {btts && (
+                            <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+                              {
+                                btts
+                              }
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-end justify-between gap-4 border-t border-slate-800 pt-4">
+                        <p className="text-xs text-slate-500">
+                          Route:{" "}
+                          {
+                            routeLabel(
+                              route,
+                            )
+                          }
+                        </p>
+
+                        <div className="text-xs font-black text-blue-400">
+                          Match Intelligence →
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                </Link>
+              );
+            },
+          )}
+        </div>
+      )}
+    </section>
   );
 }
