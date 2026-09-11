@@ -89,6 +89,7 @@ export const teams = pgTable(
     name: text("name").notNull(),
     shortName: text("short_name"),
     country: text("country"),
+    logoUrl: text("logo_url"),
     provider: text("provider").notNull(),
     providerId: text("provider_id").notNull(),
     isDemo: boolean("is_demo").notNull(),

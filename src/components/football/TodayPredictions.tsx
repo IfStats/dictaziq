@@ -1,5 +1,6 @@
 import "server-only";
 
+import Image from "next/image";
 import Link from "next/link";
 import { neon } from "@neondatabase/serverless";
 
@@ -177,6 +178,38 @@ function bttsLabel(
   }
 }
 
+function TeamCrest({
+  logoUrl,
+  name,
+}: {
+  logoUrl: string | null;
+  name: string;
+}) {
+  if (!logoUrl) {
+    return (
+      <div
+        aria-hidden="true"
+        className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-700 bg-slate-950 text-sm font-black text-slate-500"
+      >
+        {name.slice(0, 1).toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-800 bg-white/95 p-1.5">
+      <Image
+        src={logoUrl}
+        alt={`${name} crest`}
+        width={48}
+        height={48}
+        sizes="48px"
+        className="h-full w-full object-contain"
+      />
+    </div>
+  );
+}
+
 function statusLabel(
   value: string,
 ): string {
@@ -185,6 +218,9 @@ function statusLabel(
   ) {
     case "scheduled":
       return "Upcoming";
+
+    case "awaiting_update":
+      return "Awaiting update";
 
     case "live":
       return "Live";
@@ -229,14 +265,30 @@ Promise<Row[]> {
 
         fixture.kickoff_at,
         fixture.status,
+
+        CASE
+          WHEN
+            fixture.status = 'scheduled'
+            AND fixture.kickoff_at <= clock_timestamp()
+          THEN 'awaiting_update'
+
+          ELSE fixture.status::text
+        END AS display_status,
+
         fixture.home_score,
         fixture.away_score,
 
         home.name
           AS home_name,
 
+        home.logo_url
+          AS home_logo_url,
+
         away_team.name
           AS away_name,
+
+        away_team.logo_url
+          AS away_logo_url,
 
         competition.name
           AS competition_name,
@@ -434,6 +486,16 @@ export default async function TodayPredictions() {
                 ) ??
                 "Away";
 
+              const homeLogoUrl =
+                text(
+                  row.home_logo_url,
+                );
+
+              const awayLogoUrl =
+                text(
+                  row.away_logo_url,
+                );
+
               const competition =
                 text(
                   row.competition_name,
@@ -455,6 +517,12 @@ export default async function TodayPredictions() {
                   row.status,
                 ) ??
                 "unknown";
+
+              const displayStatus =
+                text(
+                  row.display_status,
+                ) ??
+                status;
 
               const baseline =
                 asRecord(
@@ -582,15 +650,20 @@ export default async function TodayPredictions() {
 
                           <span
                             className={
-                              status ===
-                              "live"
+                              displayStatus ===
+                                "live" ||
+                              displayStatus ===
+                                "halftime"
                                 ? "rounded-full bg-red-950 px-3 py-1 text-xs font-black uppercase text-red-300"
-                                : "rounded-full bg-slate-800 px-3 py-1 text-xs font-bold uppercase text-slate-300"
+                                : displayStatus ===
+                                    "awaiting_update"
+                                  ? "rounded-full bg-amber-950 px-3 py-1 text-xs font-black uppercase text-amber-300"
+                                  : "rounded-full bg-slate-800 px-3 py-1 text-xs font-bold uppercase text-slate-300"
                             }
                           >
                             {
                               statusLabel(
-                                status,
+                                displayStatus,
                               )
                             }
                           </span>
@@ -598,11 +671,22 @@ export default async function TodayPredictions() {
                       </div>
 
                       <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                        <p className="text-right text-lg font-black">
-                          {
-                            homeName
-                          }
-                        </p>
+                        <div className="flex min-w-0 flex-col items-end gap-2 text-right">
+                          <TeamCrest
+                            logoUrl={
+                              homeLogoUrl
+                            }
+                            name={
+                              homeName
+                            }
+                          />
+
+                          <p className="text-lg font-black">
+                            {
+                              homeName
+                            }
+                          </p>
+                        </div>
 
                         {homeScore !==
                           null &&
@@ -625,11 +709,22 @@ export default async function TodayPredictions() {
                           </span>
                         )}
 
-                        <p className="text-lg font-black">
-                          {
-                            awayName
-                          }
-                        </p>
+                        <div className="flex min-w-0 flex-col items-start gap-2">
+                          <TeamCrest
+                            logoUrl={
+                              awayLogoUrl
+                            }
+                            name={
+                              awayName
+                            }
+                          />
+
+                          <p className="text-lg font-black">
+                            {
+                              awayName
+                            }
+                          </p>
+                        </div>
                       </div>
 
                       <div className="mt-4 text-center text-sm text-slate-400">
