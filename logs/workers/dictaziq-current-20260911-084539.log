@@ -1,0 +1,35 @@
+============================================================
+DictazIQ Autonomous Production Worker
+Mode: current
+Started: 20260911-084539 UTC
+Repository: C:\Users\Pathway Learner\Projects\dictaziq
+============================================================
+Production date: 2026-09-11
+
+[RUN] node --env-file=.env.local --import tsx scripts\check-db.ts
+◇ injected env (0) from .env.local // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (3) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+Database connection successful.
+[PASS]
+
+[RUN] node --env-file=.env.local --import tsx scripts\ingest-api-football-daily-fixtures-v0.2.ts "2026-09-11"
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (3) from .env // tip: ⌘ enable debugging { debug: true }
+DictazIQ Quota-Tolerant Fixture Ingestion
+Version: dictaziq-api-football-daily-fixtures-v0.2
+Underlying runner: scripts/ingest-api-football-daily-fixtures-v0.1.ts
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+DictazIQ Universal Fixture Ingestion
+Version: dictaziq-api-football-daily-fixtures-v0.1
+Prediction scope: dictaziq-prediction-scope-v0.1
+Date: 2026-09-11
+Database time: 2026-09-11T08:45:55.525Z
+API-Football fixtures received: 430
+Universal fixture ingestion failed: Error connecting to database: TypeError: fetch failed
+
+Quota-tolerant fixture ingestion failed: Underlying fixture ingestion failed with exit code 1.
+[FAILED] Exit code: 1
+
+DICTAZIQ WORKER FAILED
+Exit code: 1

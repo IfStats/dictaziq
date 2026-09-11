@@ -564,6 +564,8 @@ assert.throws(
       ...withoutMarketEvidence
     } = value;
 
+    void _removed;
+
     explainUnifiedForecastV01({
       homeTeamName:
         "Home FC",

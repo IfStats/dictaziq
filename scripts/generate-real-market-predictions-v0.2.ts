@@ -47,6 +47,35 @@ const MODEL_DESCRIPTION =
 const RESULT_CONTEXT_SOURCE =
   "football-data.org";
 
+type FormRecordV02 =
+  PrematchResultContextV02["home"]["recent"];
+
+type FormContextEvidenceV02 = {
+  home: {
+    record:
+      FormRecordV02;
+  };
+
+  away: {
+    record:
+      FormRecordV02;
+  };
+};
+
+type RestContextEvidenceV02 = {
+  home?: {
+    restDays?:
+      number |
+      null;
+  };
+
+  away?: {
+    restDays?:
+      number |
+      null;
+  };
+};
+
 function requestedDate():
   string {
   const value =
@@ -701,7 +730,7 @@ let resultContext:
   null =
     null;
 
-let resultContextSnapshots:
+const resultContextSnapshots:
   Array<Record<string, unknown>> =
     [];
 
@@ -920,59 +949,62 @@ if (
    * Without it, result context remains missing.
    */
   if (recent) {
-    const recentEvidence =
-      recent.evidence as any;
+  const recentEvidence =
+    recent.evidence as
+      FormContextEvidenceV02;
 
-    const venueEvidence =
-      venue
-        ? venue.evidence as any
-        : null;
+  const venueEvidence =
+    venue
+      ? venue.evidence as
+          FormContextEvidenceV02
+      : null;
 
-    const restEvidence =
-      rest
-        ? rest.evidence as any
-        : null;
+  const restEvidence =
+    rest
+      ? rest.evidence as
+          RestContextEvidenceV02
+      : null;
 
-    resultContext = {
-      home: {
-        recent:
-          recentEvidence
-            .home
-            .record,
+  resultContext = {
+    home: {
+      recent:
+        recentEvidence
+          .home
+          .record,
 
-        venue:
-          venueEvidence
-            ?.home
-            ?.record ??
-          null,
+      venue:
+        venueEvidence
+          ?.home
+          .record ??
+        null,
 
-        restDays:
-          restEvidence
-            ?.home
-            ?.restDays ??
-          null,
-      },
+      restDays:
+        restEvidence
+          ?.home
+          ?.restDays ??
+        null,
+    },
 
-      away: {
-        recent:
-          recentEvidence
-            .away
-            .record,
+    away: {
+      recent:
+        recentEvidence
+          .away
+          .record,
 
-        venue:
-          venueEvidence
-            ?.away
-            ?.record ??
-          null,
+      venue:
+        venueEvidence
+          ?.away
+          .record ??
+        null,
 
-        restDays:
-          restEvidence
-            ?.away
-            ?.restDays ??
-          null,
-      },
-    };
-  }
+      restDays:
+        restEvidence
+          ?.away
+          ?.restDays ??
+        null,
+    },
+  };
+}
 }
 
 const inputCutoff =
@@ -1196,22 +1228,27 @@ resultContext,
       );
 
     /*
-     * The immutable market evidence cutoff is
-     * the prediction input cutoff.
-     */
-    const generatedAt =
-      new Date()
-        .toISOString();
+ * The prediction input cutoff is the latest
+ * immutable evidence observation actually
+ * included in this prediction.
+ *
+ * This may be later than the market-evidence
+ * cutoff when verified result-context evidence
+ * is also used.
+ */
+const generatedAt =
+  new Date()
+    .toISOString();
 
-    assert.ok(
-      Date.parse(
-        evidenceCutoff,
-      ) <=
-        Date.parse(
-          generatedAt,
-        ),
-      "Generated time precedes input cutoff.",
-    );
+assert.ok(
+  Date.parse(
+    inputCutoff,
+  ) <=
+    Date.parse(
+      generatedAt,
+    ),
+  "Generated time precedes input cutoff.",
+);
 
     assert.ok(
       Date.parse(
@@ -1277,7 +1314,7 @@ resultContext,
 
           ${kickoffAt}::timestamptz,
 
-          ${evidenceCutoff}::timestamptz,
+          ${inputCutoff}::timestamptz,
 
           ${generatedAt}::timestamptz,
 
