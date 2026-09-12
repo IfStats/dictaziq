@@ -312,7 +312,13 @@ Promise<Row[]> {
           AS revision_confidence,
 
         revision.evidence_grade
-          AS revision_evidence_grade
+  AS revision_evidence_grade,
+
+         deepseek.output
+         AS deepseek_output
+
+deepseek.output
+  AS deepseek_output
 
       FROM public.production_forecast_baselines_v01
         AS baseline
@@ -373,6 +379,40 @@ Promise<Row[]> {
         LIMIT 1
       ) AS revision
         ON true
+
+        LEFT JOIN LATERAL (
+  SELECT
+    prediction.output
+
+  FROM public.predictions
+    AS prediction
+
+  JOIN public.model_versions
+    AS model
+    ON model.id =
+      prediction.model_version_id
+
+  WHERE
+    prediction.fixture_id =
+      fixture.id
+
+    AND prediction.is_demo =
+      false
+
+    AND prediction.published_at
+      IS NOT NULL
+
+    AND model.version =
+      'dictaziq-deepseek-research-prediction-v0.1'
+
+  ORDER BY
+    prediction.published_at DESC,
+    prediction.generated_at DESC,
+    prediction.id DESC
+
+  LIMIT 1
+) AS deepseek
+  ON true
 
       WHERE
         fixture.is_demo =
@@ -528,6 +568,40 @@ export default async function TodayPredictions() {
                 asRecord(
                   row.baseline_output,
                 );
+
+              const deepseek =
+               asRecord(
+         row.deepseek_output,
+         );
+
+        const deepseekForecast =
+           text(
+                 deepseek.forecast,
+          );
+
+          const deepseekConfidence =
+          text(
+          deepseek.confidence,
+         );
+
+           const deepseekGrade =
+             text(
+    deepseek.evidenceGrade,
+  );
+
+const deepseekGoals =
+  goalsLabel(
+    text(
+      deepseek.goalsView,
+    ),
+  );
+
+const deepseekBtts =
+  bttsLabel(
+    text(
+      deepseek.bttsView,
+    ),
+  );  
 
               const marketEvidence =
                 asRecord(
@@ -756,6 +830,56 @@ export default async function TodayPredictions() {
                           }
                         </p>
                       </div>
+
+                      {deepseekForecast && (
+  <div className="rounded-2xl border border-blue-900/60 bg-blue-950/30 p-4">
+    <div className="flex items-center justify-between gap-3">
+      <p className="text-xs font-black uppercase tracking-wider text-blue-400">
+        DeepSeek AI Forecast
+      </p>
+
+      {deepseekGrade && (
+        <span className="rounded-full border border-blue-900 px-2 py-1 text-[10px] font-black text-blue-300">
+          Evidence {deepseekGrade}
+        </span>
+      )}
+    </div>
+
+    <p className="mt-3 text-xl font-black text-blue-300">
+      {forecastLabel(
+        deepseekForecast,
+        homeName,
+        awayName,
+      )}
+    </p>
+
+    <div className="mt-3 flex flex-wrap gap-2">
+      {deepseekConfidence && (
+        <span className="rounded-full bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+          Confidence: {titleCase(
+            deepseekConfidence,
+          )}
+        </span>
+      )}
+
+      {deepseekGoals && (
+        <span className="rounded-full bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+          {deepseekGoals}
+        </span>
+      )}
+
+      {deepseekBtts && (
+        <span className="rounded-full bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+          {deepseekBtts}
+        </span>
+      )}
+    </div>
+
+    <p className="mt-3 text-[11px] leading-5 text-slate-500">
+      Independent DeepSeek analysis using verified structured pre-match evidence.
+    </p>
+  </div>
+)}
 
                       <div className="grid grid-cols-3 gap-3">
                         <div className="rounded-xl bg-slate-950 p-3">
