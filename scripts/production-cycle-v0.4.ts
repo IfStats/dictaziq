@@ -34,12 +34,20 @@ type SqlClient =
     false
   >;
 
+type Provider =
+  | "openai";
+
 type Stage = {
   name: string;
   script: string;
   args: string[];
   retryTransient?: boolean;
+  degradableProvider?: Provider;
 };
+
+type StageOutcome =
+  | "complete"
+  | "degraded";
 
 type ParsedArgs = {
   date: string;
@@ -379,6 +387,33 @@ function isTransientInfrastructureFailure(
     "connection reset by peer",
     "server closed the connection unexpectedly",
     "network error",
+    "rate_limit_exceeded",
+    "rate limit reached",
+    "too many requests",
+  ];
+
+  return signals.some(
+    (
+      signal,
+    ) =>
+      normalized.includes(
+        signal,
+      ),
+  );
+}
+
+function isOpenAiQuotaUnavailable(
+  output: string,
+): boolean {
+  const normalized =
+    output.toLowerCase();
+
+  const signals = [
+    "no credits remaining",
+    "insufficient_quota",
+    "billing_hard_limit_reached",
+    "you exceeded your current quota",
+    "quota has been exceeded",
   ];
 
   return signals.some(
@@ -410,6 +445,8 @@ function runTsx(
       `Required production script is missing: ${script}`,
     );
   }
+
+
 
   const result =
     spawnSync(
@@ -878,7 +915,7 @@ async function runStage(
   stage: Stage,
   index: number,
   total: number,
-): Promise<void> {
+): Promise<StageOutcome> {
   console.log("");
   console.log(
     "========================================",
@@ -949,8 +986,41 @@ async function runStage(
         `STAGE COMPLETE: ${stage.name} (${elapsedSeconds.toFixed(1)}s)`,
       );
 
-      return;
+      return "complete";
     }
+
+    const providerUnavailable =
+  stage.degradableProvider ===
+    "openai" &&
+  isOpenAiQuotaUnavailable(
+    result.output,
+  );
+
+if (
+  providerUnavailable
+) {
+  const elapsedSeconds =
+    (
+      Date.now() -
+      startedAt
+    ) /
+    1000;
+
+  console.log("");
+  console.log(
+    "PROVIDER UNAVAILABLE: OpenAI quota/billing availability prevents this stage from running.",
+  );
+
+  console.log(
+    "The production cycle will continue with independent available providers.",
+  );
+
+  console.log(
+    `STAGE DEGRADED: ${stage.name} (${elapsedSeconds.toFixed(1)}s)`,
+  );
+
+   return "degraded";
+  }
 
     const transient =
       stage.retryTransient ===
@@ -1077,6 +1147,8 @@ async function main() {
   await verifyProductionInvariants(
     sql,
   );
+  let degradedStages =
+  0;   
 
   const cycleStartedAt =
     Date.now();
@@ -1089,11 +1161,20 @@ async function main() {
     index +=
       1
   ) {
-    await runStage(
-      stages[index],
-      index + 1,
-      stages.length,
-    );
+    const outcome =
+  await runStage(
+    stages[index],
+    index + 1,
+    stages.length,
+  );
+
+if (
+  outcome ===
+  "degraded"
+) {
+  degradedStages +=
+    1;
+}
   }
 
   const elapsedSeconds =
@@ -1125,20 +1206,31 @@ async function main() {
   );
 
   console.log(
-    `Stages completed: ${stages.length}/${stages.length}`,
-  );
+  `Stages completed: ${stages.length - degradedStages}/${stages.length}`,
+);
+
+console.log(
+  `Stages degraded: ${degradedStages}`,
+);
 
   console.log(
     `Elapsed: ${elapsedSeconds.toFixed(1)}s`,
   );
 
   if (
-    config.execute
-  ) {
-    console.log(
-      "Production lifecycle completed successfully.",
-    );
-  } else {
+  config.execute &&
+  degradedStages > 0
+) {
+  console.log(
+    "Production lifecycle completed with degraded provider availability.",
+  );
+} else if (
+  config.execute
+) {
+  console.log(
+    "Production lifecycle completed successfully.",
+  );
+} else {
     console.log(
       "Dry-run lifecycle completed successfully.",
     );

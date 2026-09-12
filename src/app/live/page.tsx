@@ -2,6 +2,8 @@ import type {
   Metadata,
 } from "next";
 
+import Image from "next/image";
+
 import {
   connection,
 } from "next/server";
@@ -157,6 +159,8 @@ Promise<MatchRow[]> {
 
         fixture.provider_status,
 
+        fixture.provider_elapsed,
+
         fixture.home_score,
 
         fixture.away_score,
@@ -164,8 +168,14 @@ Promise<MatchRow[]> {
         home.name
           AS home_name,
 
+        home.logo_url
+          AS home_logo_url,  
+
         away_team.name
           AS away_name,
+
+        away_team.logo_url
+           AS away_logo_url,  
 
         competition.name
           AS competition_name,
@@ -271,6 +281,11 @@ export default async function LivePage() {
             match.status,
           );
 
+  const providerElapsed =
+  numberValue(
+    match.provider_elapsed,
+  );        
+
         return (
           status ===
             "live" ||
@@ -332,6 +347,11 @@ export default async function LivePage() {
                   match.status,
                 );
 
+              const providerElapsed =
+  numberValue(
+    match.provider_elapsed,
+  );  
+
               const kickoffAt =
                 timestamp(
                   match.kickoff_at,
@@ -364,6 +384,16 @@ export default async function LivePage() {
                   match.away_name,
                 ) ||
                 "Away";
+
+              const homeLogo =
+  value(
+    match.home_logo_url,
+  );
+
+const awayLogo =
+  value(
+    match.away_logo_url,
+  );  
 
               const competition =
                 value(
@@ -410,19 +440,38 @@ export default async function LivePage() {
                       }
                     >
                       {
-                        statusLabel(
-                          status,
-                        )
-                      }
+                         status === "live" &&
+                           providerElapsed !== null
+                      ?`${providerElapsed}'`
+                         : status === "halftime"
+                        ?"HT"
+                    : statusLabel(
+                       status,
+                    )
+}
                     </span>
                   </div>
 
                   <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-                    <p className="text-right font-black">
-                      {
-                        homeName
-                      }
-                    </p>
+                    <div className="flex items-center justify-end gap-2">
+  <p className="text-right font-black">
+    {homeName}
+  </p>
+
+  {homeLogo ? (
+    <Image
+      src={homeLogo}
+      alt={`${homeName} crest`}
+      width={28}
+      height={28}
+      className="h-7 w-7 object-contain"
+    />
+  ) : (
+    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-xs font-black text-slate-400">
+      {homeName.charAt(0)}
+    </div>
+  )}
+</div>
 
                     <div className="min-w-16 text-center text-xl font-black tabular-nums">
                       {homeScore !==
@@ -433,11 +482,25 @@ export default async function LivePage() {
                         : "VS"}
                     </div>
 
-                    <p className="font-black">
-                      {
-                        awayName
-                      }
-                    </p>
+                    <div className="flex items-center gap-2">
+  {awayLogo ? (
+    <Image
+      src={awayLogo}
+      alt={`${awayName} crest`}
+      width={28}
+      height={28}
+      className="h-7 w-7 object-contain"
+    />
+  ) : (
+    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-xs font-black text-slate-400">
+      {awayName.charAt(0)}
+    </div>
+  )}
+
+  <p className="font-black">
+    {awayName}
+  </p>
+</div>
                   </div>
 
                   {kickoffAt !==

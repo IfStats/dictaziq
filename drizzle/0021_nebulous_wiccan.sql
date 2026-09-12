@@ -1,0 +1,1 @@
+ALTER TABLE "fixtures" ADD COLUMN "provider_elapsed" integer;

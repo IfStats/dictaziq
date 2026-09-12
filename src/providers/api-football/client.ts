@@ -587,6 +587,7 @@ async function fetchApiFootballArray(
     );
   }
 
+
   const response =
     await fetch(
       url,
@@ -650,6 +651,25 @@ async function fetchApiFootballArray(
   }
 
   return root.response;
+}
+
+export async function fetchLiveFixtures():
+Promise<NormalizedApiFootballFixture[]> {
+  const response =
+    await fetchApiFootballArray(
+      "/fixtures",
+      {
+        live:
+          "all",
+
+        timezone:
+          "UTC",
+      },
+    );
+
+  return response.map(
+    normalizeFixture,
+  );
 }
 
 function normalizeLineupPlayer(

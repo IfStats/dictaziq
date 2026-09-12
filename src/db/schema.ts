@@ -235,6 +235,9 @@ export const fixtures = pgTable(
     kickoffAt: timestamp("kickoff_at", { withTimezone: true }),
     status: fixtureStatus("status").notNull().default("unknown"),
     providerStatus: text("provider_status"),
+    providerElapsed: integer(
+    "provider_elapsed",
+),
 
     // Display score may include extra time when the match reaches it.
     homeScore: integer("home_score"),
