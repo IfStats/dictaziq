@@ -10,8 +10,7 @@ import {
 
 import LocalTime from "./LocalTime";
 
-type Row =
-  Record<string, unknown>;
+type Row = Record<string, unknown>;
 
 function isRecord(
   value: unknown,
@@ -26,11 +25,7 @@ function isRecord(
 function asRecord(
   value: unknown,
 ): Record<string, unknown> {
-  return isRecord(
-    value,
-  )
-    ? value
-    : {};
+  return isRecord(value) ? value : {};
 }
 
 function text(
@@ -68,9 +63,7 @@ function timestamp(
   const date =
     value instanceof Date
       ? value
-      : new Date(
-          String(value),
-        );
+      : new Date(String(value));
 
   return Number.isFinite(
     date.getTime(),
@@ -83,14 +76,8 @@ function titleCase(
   value: string,
 ): string {
   return value
-    .replaceAll(
-      "_",
-      " ",
-    )
-    .replaceAll(
-      "-",
-      " ",
-    )
+    .replaceAll("_", " ")
+    .replaceAll("-", " ")
     .replace(
       /\b\w/g,
       (character) =>
@@ -103,9 +90,7 @@ function forecastLabel(
   home: string,
   away: string,
 ): string {
-  switch (
-    selection
-  ) {
+  switch (selection) {
     case "home":
       return `${home} Win`;
 
@@ -123,9 +108,7 @@ function forecastLabel(
 function routeLabel(
   route: string | null,
 ): string {
-  switch (
-    route
-  ) {
+  switch (route) {
     case "mathematical":
       return "Mathematical";
 
@@ -140,9 +123,7 @@ function routeLabel(
 function goalsLabel(
   value: string | null,
 ): string | null {
-  switch (
-    value
-  ) {
+  switch (value) {
     case "over_2_5":
     case "over_2_5_support":
       return "Over 2.5";
@@ -162,9 +143,7 @@ function goalsLabel(
 function bttsLabel(
   value: string | null,
 ): string | null {
-  switch (
-    value
-  ) {
+  switch (value) {
     case "yes":
     case "yes_support":
       return "BTTS — Yes";
@@ -213,9 +192,7 @@ function TeamCrest({
 function statusLabel(
   value: string,
 ): string {
-  switch (
-    value
-  ) {
+  switch (value) {
     case "scheduled":
       return "Upcoming";
 
@@ -241,9 +218,7 @@ function statusLabel(
       return "Suspended";
 
     default:
-      return titleCase(
-        value,
-      );
+      return titleCase(value);
   }
 }
 
@@ -271,9 +246,9 @@ Promise<Row[]> {
             fixture.status = 'scheduled'
             AND fixture.kickoff_at <= clock_timestamp()
           THEN 'awaiting_update'
-
           ELSE fixture.status::text
-        END AS display_status,
+        END
+          AS display_status,
 
         fixture.home_score,
         fixture.away_score,
@@ -296,6 +271,9 @@ Promise<Row[]> {
         competition.country
           AS competition_country,
 
+        baseline.fixture_id
+          AS baseline_fixture_id,
+
         baseline.model_version,
         baseline.route,
 
@@ -312,21 +290,13 @@ Promise<Row[]> {
           AS revision_confidence,
 
         revision.evidence_grade
-  AS revision_evidence_grade,
+          AS revision_evidence_grade,
 
-         deepseek.output
-         AS deepseek_output
+        deepseek.output
+          AS deepseek_output
 
-deepseek.output
-  AS deepseek_output
-
-      FROM public.production_forecast_baselines_v01
-        AS baseline
-
-      JOIN public.fixtures
+      FROM public.fixtures
         AS fixture
-        ON fixture.id =
-          baseline.fixture_id
 
       JOIN public.teams
         AS home
@@ -348,6 +318,11 @@ deepseek.output
         ON competition.id =
           season.competition_id
 
+      LEFT JOIN public.production_forecast_baselines_v01
+        AS baseline
+        ON baseline.fixture_id =
+          fixture.id
+
       LEFT JOIN LATERAL (
         SELECT
           revision_row.id,
@@ -359,7 +334,10 @@ deepseek.output
           AS revision_row
 
         WHERE
-          revision_row.baseline_prediction_id =
+          baseline.baseline_prediction_id
+            IS NOT NULL
+
+          AND revision_row.baseline_prediction_id =
             baseline.baseline_prediction_id
 
           AND revision_row.fixture_id =
@@ -380,39 +358,39 @@ deepseek.output
       ) AS revision
         ON true
 
-        LEFT JOIN LATERAL (
-  SELECT
-    prediction.output
+      LEFT JOIN LATERAL (
+        SELECT
+          prediction.output
 
-  FROM public.predictions
-    AS prediction
+        FROM public.predictions
+          AS prediction
 
-  JOIN public.model_versions
-    AS model
-    ON model.id =
-      prediction.model_version_id
+        JOIN public.model_versions
+          AS model
+          ON model.id =
+            prediction.model_version_id
 
-  WHERE
-    prediction.fixture_id =
-      fixture.id
+        WHERE
+          prediction.fixture_id =
+            fixture.id
 
-    AND prediction.is_demo =
-      false
+          AND prediction.is_demo =
+            false
 
-    AND prediction.published_at
-      IS NOT NULL
+          AND prediction.published_at
+            IS NOT NULL
 
-    AND model.version =
-      'dictaziq-deepseek-research-prediction-v0.1'
+          AND model.version =
+            'dictaziq-deepseek-research-prediction-v0.1'
 
-  ORDER BY
-    prediction.published_at DESC,
-    prediction.generated_at DESC,
-    prediction.id DESC
+        ORDER BY
+          prediction.published_at DESC,
+          prediction.generated_at DESC,
+          prediction.id DESC
 
-  LIMIT 1
-) AS deepseek
-  ON true
+        LIMIT 1
+      ) AS deepseek
+        ON true
 
       WHERE
         fixture.is_demo =
@@ -426,6 +404,13 @@ deepseek.output
           clock_timestamp()
           AT TIME ZONE 'UTC'
         )::date
+
+        AND (
+          baseline.fixture_id
+            IS NOT NULL
+          OR deepseek.output
+            IS NOT NULL
+        )
 
       ORDER BY
         fixture.kickoff_at,
@@ -446,7 +431,7 @@ export default async function TodayPredictions() {
     error
   ) {
     console.error(
-      "DictazIQ authoritative homepage read failed.",
+      "DictazIQ predictions read failed.",
       error,
     );
 
@@ -457,7 +442,7 @@ export default async function TodayPredictions() {
         </h2>
 
         <p className="mt-2 text-sm text-slate-400">
-          The authoritative production forecast store could not be read.
+          The published DictazIQ prediction store could not be read.
         </p>
       </section>
     );
@@ -476,8 +461,8 @@ export default async function TodayPredictions() {
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-            Published pre-match forecasts from the authoritative
-            DictazIQ production pipeline.
+            Published pre-match forecasts from the DictazIQ
+            production and independent AI analysis pipelines.
           </p>
         </div>
 
@@ -494,8 +479,8 @@ export default async function TodayPredictions() {
           </h2>
 
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Fixtures appear here after an authoritative
-            DictazIQ baseline has been published before kickoff.
+            Published DictazIQ or DeepSeek forecasts will appear here
+            after they are generated before kickoff.
           </p>
         </div>
       ) : (
@@ -564,44 +549,50 @@ export default async function TodayPredictions() {
                 ) ??
                 status;
 
+              const hasBaseline =
+                row.baseline_fixture_id !==
+                  null &&
+                row.baseline_fixture_id !==
+                  undefined;
+
               const baseline =
                 asRecord(
                   row.baseline_output,
                 );
 
               const deepseek =
-               asRecord(
-         row.deepseek_output,
-         );
+                asRecord(
+                  row.deepseek_output,
+                );
 
-        const deepseekForecast =
-           text(
-                 deepseek.forecast,
-          );
+              const deepseekForecast =
+                text(
+                  deepseek.forecast,
+                );
 
-          const deepseekConfidence =
-          text(
-          deepseek.confidence,
-         );
+              const deepseekConfidence =
+                text(
+                  deepseek.confidence,
+                );
 
-           const deepseekGrade =
-             text(
-    deepseek.evidenceGrade,
-  );
+              const deepseekGrade =
+                text(
+                  deepseek.evidenceGrade,
+                );
 
-const deepseekGoals =
-  goalsLabel(
-    text(
-      deepseek.goalsView,
-    ),
-  );
+              const deepseekGoals =
+                goalsLabel(
+                  text(
+                    deepseek.goalsView,
+                  ),
+                );
 
-const deepseekBtts =
-  bttsLabel(
-    text(
-      deepseek.bttsView,
-    ),
-  );  
+              const deepseekBtts =
+                bttsLabel(
+                  text(
+                    deepseek.bttsView,
+                  ),
+                );
 
               const marketEvidence =
                 asRecord(
@@ -815,148 +806,170 @@ const deepseekBtts =
                     </div>
 
                     <div className="space-y-5 p-5">
-                      <div>
-                        <p className="text-xs uppercase tracking-wider text-slate-500">
-                          DictazIQ Forecast
-                        </p>
+                      {hasBaseline && (
+                        <>
+                          <div>
+                            <p className="text-xs uppercase tracking-wider text-slate-500">
+                              DictazIQ Forecast
+                            </p>
 
-                        <p className="mt-2 text-xl font-black text-emerald-400">
-                          {
-                            forecastLabel(
-                              activeForecast,
-                              homeName,
-                              awayName,
-                            )
-                          }
-                        </p>
-                      </div>
+                            <p className="mt-2 text-xl font-black text-emerald-400">
+                              {
+                                forecastLabel(
+                                  activeForecast,
+                                  homeName,
+                                  awayName,
+                                )
+                              }
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="rounded-xl bg-slate-950 p-3">
+                              <p className="text-[10px] uppercase text-slate-500">
+                                Confidence
+                              </p>
+
+                              <p className="mt-2 text-sm font-black">
+                                {activeConfidence
+                                  ? titleCase(
+                                      activeConfidence,
+                                    )
+                                  : "—"}
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl bg-slate-950 p-3">
+                              <p className="text-[10px] uppercase text-slate-500">
+                                Evidence
+                              </p>
+
+                              <p className="mt-2 text-sm font-black">
+                                {
+                                  activeGrade ??
+                                  "—"
+                                }
+                              </p>
+                            </div>
+
+                            <div className="rounded-xl bg-slate-950 p-3">
+                              <p className="text-[10px] uppercase text-slate-500">
+                                Rating Gap
+                              </p>
+
+                              <p className="mt-2 text-sm font-black">
+                                {ratingGap ===
+                                null
+                                  ? "—"
+                                  : ratingGap >
+                                      0
+                                    ? `+${ratingGap}`
+                                    : String(
+                                        ratingGap,
+                                      )}
+                              </p>
+                            </div>
+                          </div>
+
+                          {(goals ||
+                            btts) && (
+                            <div className="flex flex-wrap gap-2">
+                              {goals && (
+                                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+                                  {
+                                    goals
+                                  }
+                                </span>
+                              )}
+
+                              {btts && (
+                                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+                                  {
+                                    btts
+                                  }
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
 
                       {deepseekForecast && (
-  <div className="rounded-2xl border border-blue-900/60 bg-blue-950/30 p-4">
-    <div className="flex items-center justify-between gap-3">
-      <p className="text-xs font-black uppercase tracking-wider text-blue-400">
-        DeepSeek AI Forecast
-      </p>
+                        <div className="rounded-2xl border border-blue-900/60 bg-blue-950/30 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs font-black uppercase tracking-wider text-blue-400">
+                              DeepSeek AI Forecast
+                            </p>
 
-      {deepseekGrade && (
-        <span className="rounded-full border border-blue-900 px-2 py-1 text-[10px] font-black text-blue-300">
-          Evidence {deepseekGrade}
-        </span>
-      )}
-    </div>
+                            {deepseekGrade && (
+                              <span className="rounded-full border border-blue-900 px-2 py-1 text-[10px] font-black text-blue-300">
+                                Evidence {
+                                  deepseekGrade
+                                }
+                              </span>
+                            )}
+                          </div>
 
-    <p className="mt-3 text-xl font-black text-blue-300">
-      {forecastLabel(
-        deepseekForecast,
-        homeName,
-        awayName,
-      )}
-    </p>
-
-    <div className="mt-3 flex flex-wrap gap-2">
-      {deepseekConfidence && (
-        <span className="rounded-full bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
-          Confidence: {titleCase(
-            deepseekConfidence,
-          )}
-        </span>
-      )}
-
-      {deepseekGoals && (
-        <span className="rounded-full bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
-          {deepseekGoals}
-        </span>
-      )}
-
-      {deepseekBtts && (
-        <span className="rounded-full bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
-          {deepseekBtts}
-        </span>
-      )}
-    </div>
-
-    <p className="mt-3 text-[11px] leading-5 text-slate-500">
-      Independent DeepSeek analysis using verified structured pre-match evidence.
-    </p>
-  </div>
-)}
-
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="rounded-xl bg-slate-950 p-3">
-                          <p className="text-[10px] uppercase text-slate-500">
-                            Confidence
-                          </p>
-
-                          <p className="mt-2 text-sm font-black">
-                            {activeConfidence
-                              ? titleCase(
-                                  activeConfidence,
-                                )
-                              : "—"}
-                          </p>
-                        </div>
-
-                        <div className="rounded-xl bg-slate-950 p-3">
-                          <p className="text-[10px] uppercase text-slate-500">
-                            Evidence
-                          </p>
-
-                          <p className="mt-2 text-sm font-black">
+                          <p className="mt-3 text-xl font-black text-blue-300">
                             {
-                              activeGrade ??
-                              "—"
+                              forecastLabel(
+                                deepseekForecast,
+                                homeName,
+                                awayName,
+                              )
                             }
                           </p>
-                        </div>
 
-                        <div className="rounded-xl bg-slate-950 p-3">
-                          <p className="text-[10px] uppercase text-slate-500">
-                            Rating Gap
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {deepseekConfidence && (
+                              <span className="rounded-full bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+                                Confidence:{" "}
+                                {
+                                  titleCase(
+                                    deepseekConfidence,
+                                  )
+                                }
+                              </span>
+                            )}
+
+                            {deepseekGoals && (
+                              <span className="rounded-full bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+                                {
+                                  deepseekGoals
+                                }
+                              </span>
+                            )}
+
+                            {deepseekBtts && (
+                              <span className="rounded-full bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+                                {
+                                  deepseekBtts
+                                }
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="mt-3 text-[11px] leading-5 text-slate-500">
+                            Independent DeepSeek analysis using available
+                            DictazIQ and API-Football pre-match evidence.
                           </p>
-
-                          <p className="mt-2 text-sm font-black">
-                            {ratingGap ===
-                            null
-                              ? "—"
-                              : ratingGap >
-                                  0
-                                ? `+${ratingGap}`
-                                : String(
-                                    ratingGap,
-                                  )}
-                          </p>
-                        </div>
-                      </div>
-
-                      {(goals ||
-                        btts) && (
-                        <div className="flex flex-wrap gap-2">
-                          {goals && (
-                            <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
-                              {
-                                goals
-                              }
-                            </span>
-                          )}
-
-                          {btts && (
-                            <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
-                              {
-                                btts
-                              }
-                            </span>
-                          )}
                         </div>
                       )}
 
                       <div className="flex items-end justify-between gap-4 border-t border-slate-800 pt-4">
                         <p className="text-xs text-slate-500">
-                          Route:{" "}
-                          {
-                            routeLabel(
-                              route,
-                            )
-                          }
+                          {hasBaseline ? (
+                            <>
+                              Route:{" "}
+                              {
+                                routeLabel(
+                                  route,
+                                )
+                              }
+                            </>
+                          ) : (
+                            "Route: DeepSeek AI"
+                          )}
                         </p>
 
                         <div className="text-xs font-black text-blue-400">
