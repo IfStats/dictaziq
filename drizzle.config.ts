@@ -23,6 +23,7 @@ export default defineConfig({
     "./src/db/schema.ts",
     "./src/db/forecast-revisions-schema.ts",
     "./src/db/forecast-revision-outcomes-schema.ts",
+    "./src/db/provider-cache-schema.ts",
   ],
 
   out:
