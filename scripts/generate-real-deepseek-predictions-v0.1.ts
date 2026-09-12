@@ -1915,7 +1915,28 @@ async function main() {
       "DeepSeek structured analysis: START",
     );
 
-    const research =
+    let research:
+  Awaited<
+    ReturnType<
+      typeof generateDeepSeekResearchPredictionV01
+    >
+  > |
+  null =
+  null;
+
+const maxJsonAttempts =
+  2;
+
+for (
+  let attempt =
+    1;
+  attempt <=
+    maxJsonAttempts;
+  attempt +=
+    1
+) {
+  try {
+    research =
       await generateDeepSeekResearchPredictionV01({
         purpose:
           "fallback",
@@ -1935,10 +1956,6 @@ async function main() {
         },
 
         evidence: {
-          /*
-           * This is the structured-evidence
-           * observation boundary supplied to DeepSeek.
-           */
           cutoffAt:
             researchStartedAt,
 
@@ -1946,6 +1963,57 @@ async function main() {
             finalFacts,
         },
       });
+
+    break;
+  } catch (
+    error
+  ) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Unknown DeepSeek error.";
+
+    const malformedJson =
+      message.includes(
+        "DeepSeek returned invalid JSON for the research prediction.",
+      );
+
+    if (
+      !malformedJson
+    ) {
+      throw error;
+    }
+
+    console.log(
+      `DEEPSEEK JSON ERROR: attempt ${attempt}/${maxJsonAttempts}.`,
+    );
+
+    if (
+      attempt <
+      maxJsonAttempts
+    ) {
+      console.log(
+        "RETRY: requesting a fresh DeepSeek structured response.",
+      );
+
+      continue;
+    }
+
+    console.log(
+      "SKIP: DeepSeek returned malformed JSON after retry budget.",
+    );
+
+    skipped +=
+      1;
+  }
+}
+
+if (
+  research ===
+  null
+) {
+  continue;
+}
 
     const researchCompletedAt =
       await databaseNow(
