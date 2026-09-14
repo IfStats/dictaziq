@@ -12,6 +12,22 @@ import LocalTime from "./LocalTime";
 
 type Row = Record<string, unknown>;
 
+export type OutcomeFilter =
+  | "all"
+  | "home"
+  | "draw"
+  | "away";
+
+export type GoalsFilter =
+  | "all"
+  | "over_2_5"
+  | "under_2_5";
+
+export type BttsFilter =
+  | "all"
+  | "yes"
+  | "no";
+
 function isRecord(
   value: unknown,
 ): value is Record<string, unknown> {
@@ -37,6 +53,138 @@ function text(
   )
     ? value.trim()
     : null;
+}
+
+function effectiveForecast(
+  row: Row,
+): string | null {
+  const baseline =
+    asRecord(
+      row.baseline_output,
+    );
+
+  const deepseek =
+    asRecord(
+      row.deepseek_output,
+    );
+
+  return (
+    text(
+      row.revision_selection,
+    ) ??
+    text(
+      baseline.forecast,
+    ) ??
+    text(
+      deepseek.forecast,
+    )
+  );
+}
+
+function normalizeGoalsValue(
+  value: string | null,
+): Exclude<GoalsFilter, "all"> | null {
+  switch (value) {
+    case "over_2_5":
+    case "over_2_5_support":
+      return "over_2_5";
+
+    case "under_2_5":
+    case "under_2_5_support":
+      return "under_2_5";
+
+    default:
+      return null;
+  }
+}
+
+function normalizeBttsValue(
+  value: string | null,
+): Exclude<BttsFilter, "all"> | null {
+  switch (value) {
+    case "yes":
+    case "yes_support":
+      return "yes";
+
+    case "no":
+    case "no_support":
+      return "no";
+
+    default:
+      return null;
+  }
+}
+
+function effectiveGoals(
+  row: Row,
+): Exclude<GoalsFilter, "all"> | null {
+  const baseline =
+    asRecord(
+      row.baseline_output,
+    );
+
+  const deepseek =
+    asRecord(
+      row.deepseek_output,
+    );
+
+  const marketEvidence =
+    asRecord(
+      baseline.marketEvidence,
+    );
+
+  const goalsEvidence =
+    asRecord(
+      marketEvidence.goals,
+    );
+
+  return normalizeGoalsValue(
+    text(
+      baseline.goalsView,
+    ) ??
+    text(
+      goalsEvidence.signal,
+    ) ??
+    text(
+      deepseek.goalsView,
+    ),
+  );
+}
+
+function effectiveBtts(
+  row: Row,
+): Exclude<BttsFilter, "all"> | null {
+  const baseline =
+    asRecord(
+      row.baseline_output,
+    );
+
+  const deepseek =
+    asRecord(
+      row.deepseek_output,
+    );
+
+  const marketEvidence =
+    asRecord(
+      baseline.marketEvidence,
+    );
+
+  const bttsEvidence =
+    asRecord(
+      marketEvidence.btts,
+    );
+
+  return normalizeBttsValue(
+    text(
+      baseline.bttsView,
+    ) ??
+    text(
+      bttsEvidence.signal,
+    ) ??
+    text(
+      deepseek.bttsView,
+    ),
+  );
 }
 
 function numberValue(
@@ -420,9 +568,16 @@ Promise<Row[]> {
   return rows as Row[];
 }
 
-export default async function TodayPredictions() {
-  let matches:
-    Row[];
+export default async function TodayPredictions({
+  outcome = "all",
+  goals = "all",
+  btts = "all",
+}: {
+  outcome?: OutcomeFilter;
+  goals?: GoalsFilter;
+  btts?: BttsFilter;
+}) {
+  let matches: Row[] = [];
 
   try {
     matches =
@@ -448,6 +603,40 @@ export default async function TodayPredictions() {
     );
   }
 
+  const hasActiveFilter =
+    outcome !== "all" ||
+    goals !== "all" ||
+    btts !== "all";
+
+  const filteredMatches =
+    matches.filter(
+      (row) => {
+        const outcomeMatches =
+          outcome === "all" ||
+          effectiveForecast(
+            row,
+          ) === outcome;
+
+        const goalsMatches =
+          goals === "all" ||
+          effectiveGoals(
+            row,
+          ) === goals;
+
+        const bttsMatches =
+          btts === "all" ||
+          effectiveBtts(
+            row,
+          ) === btts;
+
+        return (
+          outcomeMatches &&
+          goalsMatches &&
+          bttsMatches
+        );
+      },
+    );
+
   return (
     <section>
       <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
@@ -467,11 +656,13 @@ export default async function TodayPredictions() {
         </div>
 
         <div className="rounded-full border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-400">
-          {matches.length} published
+          {hasActiveFilter
+            ? `${filteredMatches.length} shown · ${matches.length} published`
+            : `${matches.length} published`}
         </div>
       </div>
 
-      {matches.length ===
+      {filteredMatches.length ===
       0 ? (
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8">
           <h2 className="font-bold">
@@ -485,7 +676,7 @@ export default async function TodayPredictions() {
         </div>
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
-          {matches.map(
+          {filteredMatches.map(
             (
               row,
             ) => {
