@@ -55,6 +55,51 @@ export const competitions = pgTable(
   ],
 );
 
+export const providerApiUsageDaily = pgTable(
+  "provider_api_usage_daily",
+  {
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    provider: text("provider")
+      .notNull(),
+
+    usageDate: date("usage_date")
+      .notNull(),
+
+    category: text("category")
+      .notNull(),
+
+    requestCount: integer("request_count")
+      .notNull()
+      .default(0),
+
+    updatedAt: timestamp(
+      "updated_at",
+      {
+        withTimezone: true,
+      },
+    )
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex(
+      "provider_api_usage_daily_identity",
+    ).on(
+      table.provider,
+      table.usageDate,
+      table.category,
+    ),
+
+    check(
+      "provider_api_usage_daily_non_negative",
+      sql`${table.requestCount} >= 0`,
+    ),
+  ],
+);
+
 export const seasons = pgTable(
   "seasons",
   {

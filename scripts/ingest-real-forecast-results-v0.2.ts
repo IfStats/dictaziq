@@ -236,6 +236,7 @@ async function main() {
   const page =
     await fetchFixturesByDate(
       date,
+      "results",
     );
 
   console.log(

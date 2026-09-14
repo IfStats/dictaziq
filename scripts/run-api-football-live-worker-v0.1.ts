@@ -24,10 +24,13 @@ const WORKER_VERSION =
   "dictaziq-api-football-live-worker-v0.1";
 
 const DEFAULT_LIVE_INTERVAL_SECONDS =
-  60;
+  300;
 
 const DEFAULT_IDLE_INTERVAL_SECONDS =
   300;
+
+const DEFAULT_LIVE_DAILY_BUDGET =
+  50;
 
 let stopping =
   false;
@@ -52,6 +55,32 @@ function positiveIntegerEnv(
   ) {
     throw new Error(
       `${name} must be an integer of at least 30 seconds.`,
+    );
+  }
+
+  return value;
+}
+
+function positiveCountEnv(
+  name: string,
+  fallback: number,
+): number {
+  const raw =
+    process.env[name]?.trim();
+
+  if (!raw) {
+    return fallback;
+  }
+
+  const value =
+    Number(raw);
+
+  if (
+    !Number.isInteger(value) ||
+    value < 1
+  ) {
+    throw new Error(
+      `${name} must be a positive integer.`,
     );
   }
 
@@ -202,6 +231,52 @@ boolean {
   return true;
 }
 
+async function liveUsageToday():
+Promise<number> {
+  const sql =
+    neon(
+      getDatabaseUrl(),
+    );
+
+  const rows =
+    await sql`
+      SELECT
+        request_count
+
+      FROM public.provider_api_usage_daily
+
+      WHERE
+        provider =
+          'api-football'
+
+        AND usage_date =
+          (
+            clock_timestamp()
+            AT TIME ZONE 'UTC'
+          )::date
+
+        AND category =
+          'live'
+
+      LIMIT 1
+    `;
+
+  if (
+    rows.length === 0
+  ) {
+    return 0;
+  }
+
+  const value =
+    Number(
+      rows[0].request_count,
+    );
+
+  return Number.isFinite(value)
+    ? value
+    : 0;
+}
+
 async function main() {
   const liveIntervalSeconds =
     positiveIntegerEnv(
@@ -209,11 +284,21 @@ async function main() {
       DEFAULT_LIVE_INTERVAL_SECONDS,
     );
 
+   const liveDailyBudget =
+  positiveCountEnv(
+    "API_FOOTBALL_LIVE_DAILY_BUDGET",
+    DEFAULT_LIVE_DAILY_BUDGET,
+  );
+
   const idleIntervalSeconds =
     positiveIntegerEnv(
       "LIVE_IDLE_INTERVAL_SECONDS",
       DEFAULT_IDLE_INTERVAL_SECONDS,
     );
+
+  console.log(
+  `Live daily budget: ${liveDailyBudget} calls`,
+);
 
   console.log(
     "========================================",
@@ -247,14 +332,26 @@ async function main() {
         await hasActiveMatchWindow();
 
       if (
-        active
-      ) {
-        console.log(
-          `[${new Date().toISOString()}] Active match window detected.`,
-        );
+  active
+) {
+  const liveUsed =
+    await liveUsageToday();
 
-        runLiveIngestion();
-      } else {
+  console.log(
+    `[${new Date().toISOString()}] Active match window detected. Live quota: ${liveUsed}/${liveDailyBudget}.`,
+  );
+
+  if (
+    liveUsed >=
+      liveDailyBudget
+  ) {
+    console.log(
+      "Live API-Football allocation exhausted. Provider polling skipped.",
+    );
+  } else {
+    runLiveIngestion();
+  }
+} else {
         console.log(
           `[${new Date().toISOString()}] No active match window. Provider polling skipped.`,
         );

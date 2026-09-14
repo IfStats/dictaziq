@@ -7,6 +7,12 @@ import {
   type ApiFootballLineupPlayer,
 } from "./types";
 
+import {
+  reserveApiFootballRequest,
+  synchronizeApiFootballQuotaFromHeaders,
+  type ApiFootballUsageCategory,
+} from "./quota";
+
 const BASE_URL =
   "https://v3.football.api-sports.io";
 
@@ -458,6 +464,9 @@ function normalizeFixture(
 
 export async function fetchFixturesByDate(
   date: string,
+  category:
+    ApiFootballUsageCategory =
+      "fixtures",
 ): Promise<ApiFootballFixturePage> {
   validateDate(date);
 
@@ -480,6 +489,10 @@ export async function fetchFixturesByDate(
     "UTC",
   );
 
+  await reserveApiFootballRequest(
+  category,
+);
+
   const response =
     await fetch(
       url,
@@ -500,6 +513,10 @@ export async function fetchFixturesByDate(
           ),
       },
     );
+
+  await synchronizeApiFootballQuotaFromHeaders(
+  response.headers,
+  );
 
   if (!response.ok) {
     throw new Error(
@@ -566,6 +583,8 @@ async function fetchApiFootballArray(
   pathname: string,
   parameters:
     Record<string, string>,
+  category:
+    ApiFootballUsageCategory,
 ): Promise<unknown[]> {
   const url =
     new URL(
@@ -586,6 +605,10 @@ async function fetchApiFootballArray(
       value,
     );
   }
+
+  await reserveApiFootballRequest(
+  category,
+);
 
 
   const response =
@@ -615,6 +638,10 @@ async function fetchApiFootballArray(
       `API-Football request failed: HTTP ${response.status}.`,
     );
   }
+
+  await synchronizeApiFootballQuotaFromHeaders(
+  response.headers,
+);
 
   const payload: unknown =
     await response.json();
@@ -665,6 +692,7 @@ Promise<NormalizedApiFootballFixture[]> {
         timezone:
           "UTC",
       },
+      "live",
     );
 
   return response.map(
@@ -806,6 +834,7 @@ export async function fetchFixtureLineups(
             fixtureId,
           ),
       },
+      "prematch",
     );
 
   return response.map(
@@ -930,6 +959,7 @@ export async function fetchFixtureInjuries(
             fixtureId,
           ),
       },
+      "prematch",
     );
 
   const normalized =
