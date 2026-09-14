@@ -15,11 +15,6 @@ import {
   canonicalSha256,
 } from "../src/lib/predictions/market-evidence-persistence";
 
-import {
-  fetchFixtureInjuries,
-  fetchFixtureLineups,
-} from "../src/providers/api-football/client";
-
 const RUNNER_VERSION =
   "dictaziq-prematch-gpt-monitor-v0.3";
 
@@ -144,14 +139,18 @@ function requestedDate(): string {
       .slice(0, 10);
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    throw new Error("Date must use YYYY-MM-DD.");
+    throw new Error(
+      "Date must use YYYY-MM-DD.",
+    );
   }
 
   return value;
 }
 
 function persistRequested(): boolean {
-  return process.argv.includes("--persist");
+  return process.argv.includes(
+    "--persist",
+  );
 }
 
 function positiveIntegerFlag(
@@ -161,7 +160,8 @@ function positiveIntegerFlag(
   const prefix = `--${name}=`;
   const argument =
     process.argv.find(
-      (value) => value.startsWith(prefix),
+      (value) =>
+        value.startsWith(prefix),
     );
 
   if (!argument) {
@@ -172,7 +172,10 @@ function positiveIntegerFlag(
     argument.slice(prefix.length),
   );
 
-  if (!Number.isInteger(value) || value <= 0) {
+  if (
+    !Number.isInteger(value) ||
+    value <= 0
+  ) {
     throw new Error(
       `--${name} must be a positive integer.`,
     );
@@ -187,7 +190,8 @@ function optionalPositiveIntegerFlag(
   const prefix = `--${name}=`;
   const argument =
     process.argv.find(
-      (value) => value.startsWith(prefix),
+      (value) =>
+        value.startsWith(prefix),
     );
 
   if (!argument) {
@@ -198,7 +202,10 @@ function optionalPositiveIntegerFlag(
     argument.slice(prefix.length),
   );
 
-  if (!Number.isInteger(value) || value <= 0) {
+  if (
+    !Number.isInteger(value) ||
+    value <= 0
+  ) {
     throw new Error(
       `--${name} must be a positive integer.`,
     );
@@ -207,7 +214,9 @@ function optionalPositiveIntegerFlag(
   return value;
 }
 
-function isRecord(value: unknown): value is JsonObject {
+function isRecord(
+  value: unknown,
+): value is JsonObject {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -215,8 +224,12 @@ function isRecord(value: unknown): value is JsonObject {
   );
 }
 
-function asRecord(value: unknown): JsonObject {
-  return isRecord(value) ? value : {};
+function asRecord(
+  value: unknown,
+): JsonObject {
+  return isRecord(value)
+    ? value
+    : {};
 }
 
 function textValue(
@@ -228,16 +241,9 @@ function textValue(
     : fallback;
 }
 
-function numberValue(
+function iso(
   value: unknown,
-): number | null {
-  const result = Number(value);
-  return Number.isFinite(result)
-    ? result
-    : null;
-}
-
-function iso(value: unknown): string {
+): string {
   const date =
     value instanceof Date
       ? value
@@ -251,24 +257,118 @@ function iso(value: unknown): string {
   return date.toISOString();
 }
 
-function ms(value: unknown): number {
-  return new Date(iso(value)).getTime();
+function ms(
+  value: unknown,
+): number {
+  return new Date(
+    iso(value),
+  ).getTime();
 }
 
 async function databaseNow(
   sql: SqlClient,
 ): Promise<string> {
-  const rows = await sql`
-    SELECT clock_timestamp() AS now
-  `;
+  const rows =
+    await sql`
+      SELECT
+        clock_timestamp()
+          AS now
+    `;
 
-  assert.equal(rows.length, 1);
-  return iso(rows[0].now);
+  assert.equal(
+    rows.length,
+    1,
+    "Could not read database clock.",
+  );
+
+  return iso(
+    rows[0].now,
+  );
 }
 
-function selectionValue(value: unknown): Selection {
+async function storedContextFacts(
+  sql: SqlClient,
+  fixtureId: string,
+  cutoffAt: string,
+  kickoffAt: string,
+): Promise<StructuredFact[]> {
+  const rows =
+    await sql`
+      SELECT
+        kind,
+        side,
+        description,
+        source,
+        observed_at
+
+      FROM public.context_evidence_snapshots
+
+      WHERE fixture_id =
+        ${fixtureId}::uuid
+
+        AND is_demo =
+          false
+
+        AND observed_at <=
+          ${cutoffAt}::timestamptz
+
+        AND observed_at <
+          ${kickoffAt}::timestamptz
+
+      ORDER BY
+        observed_at,
+        id
+
+      LIMIT 50
+    `;
+
+  return rows.flatMap(
+    (row) => {
+      const kind =
+        textValue(row.kind);
+
+      const description =
+        textValue(row.description);
+
+      const source =
+        textValue(row.source);
+
+      if (
+        !kind ||
+        !description ||
+        !source
+      ) {
+        return [];
+      }
+
+      const rawSide =
+        textValue(row.side);
+
+      const side:
+        "home" | "away" | "match" =
+        rawSide === "home" ||
+        rawSide === "away"
+          ? rawSide
+          : "match";
+
+      return [{
+        kind,
+        side,
+        description,
+        source,
+        observedAt:
+          iso(row.observed_at),
+      }];
+    },
+  );
+}
+
+function selectionValue(
+  value: unknown,
+): Selection {
   const normalized =
-    String(value).toLowerCase();
+    String(value)
+      .toLowerCase();
 
   if (
     normalized === "home" ||
@@ -287,7 +387,8 @@ function confidenceValue(
   value: unknown,
 ): Confidence {
   const normalized =
-    String(value).toLowerCase();
+    String(value)
+      .toLowerCase();
 
   if (
     normalized === "high" ||
@@ -305,7 +406,8 @@ function evidenceGradeValue(
   value: unknown,
 ): EvidenceGrade {
   const normalized =
-    String(value).toUpperCase();
+    String(value)
+      .toUpperCase();
 
   if (
     normalized === "A" ||
@@ -363,7 +465,8 @@ function extractBaselineState(
   route: string,
   outputValue: unknown,
 ): ForecastState {
-  const output = asRecord(outputValue);
+  const output =
+    asRecord(outputValue);
 
   assert.ok(
     route === "mathematical" ||
@@ -372,39 +475,64 @@ function extractBaselineState(
   );
 
   return {
-    selection: selectionValue(output.forecast),
-    confidence: confidenceValue(output.confidence),
-    evidenceGrade: evidenceGradeValue(
-      output.evidenceGrade,
-    ),
-    goalsView: goalsViewValue(output.goalsView),
-    bttsView: bttsViewValue(output.bttsView),
-    lineupState: "unavailable",
+    selection:
+      selectionValue(
+        output.forecast,
+      ),
+    confidence:
+      confidenceValue(
+        output.confidence,
+      ),
+    evidenceGrade:
+      evidenceGradeValue(
+        output.evidenceGrade,
+      ),
+    goalsView:
+      goalsViewValue(
+        output.goalsView,
+      ),
+    bttsView:
+      bttsViewValue(
+        output.bttsView,
+      ),
+    lineupState:
+      "unavailable",
   };
 }
 
 function extractRevisionState(
   row: JsonObject,
 ): ForecastState {
-  const output = asRecord(
-    row.latest_revision_output,
-  );
+  const output =
+    asRecord(
+      row.latest_revision_output,
+    );
 
   return {
-    selection: selectionValue(
-      row.latest_revision_selection,
-    ),
-    confidence: confidenceValue(
-      row.latest_revision_confidence,
-    ),
-    evidenceGrade: evidenceGradeValue(
-      row.latest_revision_evidence_grade,
-    ),
-    goalsView: goalsViewValue(output.goalsView),
-    bttsView: bttsViewValue(output.bttsView),
-    lineupState: lineupStateValue(
-      row.latest_revision_lineup_state,
-    ),
+    selection:
+      selectionValue(
+        row.latest_revision_selection,
+      ),
+    confidence:
+      confidenceValue(
+        row.latest_revision_confidence,
+      ),
+    evidenceGrade:
+      evidenceGradeValue(
+        row.latest_revision_evidence_grade,
+      ),
+    goalsView:
+      goalsViewValue(
+        output.goalsView,
+      ),
+    bttsView:
+      bttsViewValue(
+        output.bttsView,
+      ),
+    lineupState:
+      lineupStateValue(
+        row.latest_revision_lineup_state,
+      ),
   };
 }
 
@@ -419,75 +547,106 @@ function arrayOfRecords(
 function previousFacts(
   snapshotValue: unknown,
 ): StructuredFact[] {
-  const snapshot = asRecord(snapshotValue);
-  const structured = asRecord(
-    snapshot.structuredEvidence,
-  );
+  const snapshot =
+    asRecord(snapshotValue);
+
+  const structured =
+    asRecord(
+      snapshot.structuredEvidence,
+    );
 
   return arrayOfRecords(
     structured.facts,
-  ).flatMap((fact) => {
-    const kind = textValue(fact.kind);
-    const description =
-      textValue(fact.description);
-    const source = textValue(fact.source);
-    const observedAt =
-      textValue(fact.observedAt);
-    const sideValue = textValue(fact.side);
+  ).flatMap(
+    (fact) => {
+      const kind =
+        textValue(fact.kind);
 
-    if (
-      !kind ||
-      !description ||
-      !source ||
-      !observedAt
-    ) {
-      return [];
-    }
+      const description =
+        textValue(fact.description);
 
-    const side:
-      "home" | "away" | "match" =
-      sideValue === "home" ||
-      sideValue === "away"
-        ? sideValue
-        : "match";
+      const source =
+        textValue(fact.source);
 
-    return [{
-      kind,
-      side,
-      description,
-      source,
-      observedAt,
-    }];
-  });
+      const observedAt =
+        textValue(fact.observedAt);
+
+      const sideValue =
+        textValue(fact.side);
+
+      if (
+        !kind ||
+        !description ||
+        !source ||
+        !observedAt
+      ) {
+        return [];
+      }
+
+      const side:
+        "home" | "away" | "match" =
+        sideValue === "home" ||
+        sideValue === "away"
+          ? sideValue
+          : "match";
+
+      return [{
+        kind,
+        side,
+        description,
+        source,
+        observedAt,
+      }];
+    },
+  );
 }
 
 function previousSources(
   snapshotValue: unknown,
 ): ResearchSource[] {
-  const snapshot = asRecord(snapshotValue);
-  const web = asRecord(snapshot.webResearch);
+  const snapshot =
+    asRecord(snapshotValue);
 
-  return arrayOfRecords(web.sources)
-    .flatMap((source) => {
-      const url = textValue(source.url);
-      if (!url) return [];
+  const web =
+    asRecord(
+      snapshot.webResearch,
+    );
+
+  return arrayOfRecords(
+    web.sources,
+  ).flatMap(
+    (source) => {
+      const url =
+        textValue(source.url);
+
+      if (!url) {
+        return [];
+      }
+
+      const tier =
+        classifySource(url);
 
       return [{
         url,
         title:
-          textValue(source.title) || url,
-        tier:
-          classifySource(url),
+          textValue(source.title) ||
+          url,
+        tier,
         mayDriveForecast:
-          classifySource(url) !==
+          tier !==
           "prediction_tipster",
       }];
-    });
+    },
+  );
 }
 
-function normalizeUrl(value: string): string {
+function normalizeUrl(
+  value: string,
+): string {
   try {
-    const url = new URL(value);
+    const url =
+      new URL(value);
+
     url.hash = "";
 
     for (
@@ -495,7 +654,9 @@ function normalizeUrl(value: string): string {
       of [...url.searchParams.keys()]
     ) {
       if (
-        key.toLowerCase().startsWith("utm_") ||
+        key
+          .toLowerCase()
+          .startsWith("utm_") ||
         key.toLowerCase() === "ref" ||
         key.toLowerCase() === "source"
       ) {
@@ -509,7 +670,9 @@ function normalizeUrl(value: string): string {
   }
 }
 
-function hostname(value: string): string {
+function hostname(
+  value: string,
+): string {
   try {
     return new URL(value)
       .hostname
@@ -567,15 +730,20 @@ function domainMatches(
 ): boolean {
   return (
     host === domain ||
-    host.endsWith(`.${domain}`)
+    host.endsWith(
+      `.${domain}`,
+    )
   );
 }
 
 function classifySource(
   url: string,
 ): ResearchSourceTier {
-  const host = hostname(url);
-  const full = url.toLowerCase();
+  const host =
+    hostname(url);
+
+  const full =
+    url.toLowerCase();
 
   if (
     TIPSTER_PATTERNS.some(
@@ -590,7 +758,10 @@ function classifySource(
   if (
     OFFICIAL_DOMAINS.some(
       (domain) =>
-        domainMatches(host, domain),
+        domainMatches(
+          host,
+          domain,
+        ),
     )
   ) {
     return "official_primary";
@@ -599,7 +770,10 @@ function classifySource(
   if (
     REPUTABLE_DOMAINS.some(
       (domain) =>
-        domainMatches(host, domain),
+        domainMatches(
+          host,
+          domain,
+        ),
     )
   ) {
     return "reputable_secondary";
@@ -635,8 +809,10 @@ function capConfidence(
   raw: Confidence,
   cap: Confidence,
 ): Confidence {
-  return confidenceRank(raw) <=
+  return (
+    confidenceRank(raw) <=
     confidenceRank(cap)
+  )
     ? raw
     : cap;
 }
@@ -645,8 +821,10 @@ function capGrade(
   raw: EvidenceGrade,
   cap: EvidenceGrade,
 ): EvidenceGrade {
-  return gradeRank(raw) <=
+  return (
+    gradeRank(raw) <=
     gradeRank(cap)
+  )
     ? raw
     : cap;
 }
@@ -678,29 +856,49 @@ function applySourcePolicy(
     ).length;
 
   const authoritative =
-    official + reputable;
+    official +
+    reputable;
 
-  let confidenceCap: Confidence;
-  let gradeCap: EvidenceGrade;
+  let confidenceCap:
+    Confidence;
+
+  let gradeCap:
+    EvidenceGrade;
 
   if (
     lineupState === "confirmed" &&
     authoritative >= 2
   ) {
-    confidenceCap = "high";
-    gradeCap = "A";
-  } else if (authoritative >= 2) {
-    confidenceCap = "medium";
-    gradeCap = "B";
-  } else if (authoritative === 1) {
-    confidenceCap = "low";
-    gradeCap = "C";
-  } else if (supplemental > 0) {
-    confidenceCap = "very_low";
-    gradeCap = "D";
+    confidenceCap =
+      "high";
+    gradeCap =
+      "A";
+  } else if (
+    authoritative >= 2
+  ) {
+    confidenceCap =
+      "medium";
+    gradeCap =
+      "B";
+  } else if (
+    authoritative === 1
+  ) {
+    confidenceCap =
+      "low";
+    gradeCap =
+      "C";
+  } else if (
+    supplemental > 0
+  ) {
+    confidenceCap =
+      "very_low";
+    gradeCap =
+      "D";
   } else {
-    confidenceCap = "very_low";
-    gradeCap = "E";
+    confidenceCap =
+      "very_low";
+    gradeCap =
+      "E";
   }
 
   return {
@@ -718,101 +916,20 @@ function applySourcePolicy(
   };
 }
 
-function isQuotaError(
-  error: unknown,
-): boolean {
-  const text =
-    error instanceof Error
-      ? error.message.toLowerCase()
-      : String(error).toLowerCase();
-
-  return (
-    text.includes("request limit") ||
-    text.includes("requests limit") ||
-    text.includes("upgrade your plan") ||
-    text.includes("too many requests")
-  );
-}
-
-function teamIdFromRecord(
-  value: unknown,
-): number | null {
-  const root = asRecord(value);
-  const team = asRecord(root.team);
-  return numberValue(team.id);
-}
-
-function playerNameFromRecord(
-  value: unknown,
-): string {
-  const root = asRecord(value);
-  const player = asRecord(root.player);
-
-  return (
-    textValue(root.name) ||
-    textValue(player.name) ||
-    "Unknown player"
-  );
-}
-
-function injuryDescription(
-  value: unknown,
-): string {
-  const root = asRecord(value);
-  const player = asRecord(root.player);
-
-  const playerName =
-    textValue(player.name) ||
-    textValue(root.playerName) ||
-    "Unknown player";
-
-  const reason =
-    textValue(root.reason) ||
-    textValue(root.type) ||
-    textValue(root.detail) ||
-    "availability issue";
-
-  return `${playerName}: ${reason}`;
-}
-
-function lineupFact(
-  lineupValue: unknown,
-  side: "home" | "away",
-  observedAt: string,
-): StructuredFact {
-  const lineup = asRecord(lineupValue);
-  const team = asRecord(lineup.team);
-  const starters = Array.isArray(lineup.startXI)
-    ? lineup.startXI
-    : [];
-
-  const names = starters
-    .map(playerNameFromRecord)
-    .filter(Boolean)
-    .slice(0, 11);
-
-  const formation =
-    textValue(lineup.formation) ||
-    "formation unavailable";
-
-  return {
-    kind: "lineup",
-    side,
-    description:
-      `${textValue(team.name) || side} confirmed XI (${formation}): ${names.join(", ")}`,
-    source: "api-football",
-    observedAt,
-  };
-}
-
 function factSignature(
   fact: StructuredFact,
 ): string {
   return [
-    fact.kind.trim().toLowerCase(),
+    fact.kind
+      .trim()
+      .toLowerCase(),
     fact.side,
-    fact.description.trim().toLowerCase(),
-    fact.source.trim().toLowerCase(),
+    fact.description
+      .trim()
+      .toLowerCase(),
+    fact.source
+      .trim()
+      .toLowerCase(),
   ].join("|");
 }
 
@@ -820,20 +937,34 @@ function factsChanged(
   previous: StructuredFact[],
   current: StructuredFact[],
 ): boolean {
-  const before = new Set(
-    previous.map(factSignature),
-  );
+  const before =
+    new Set(
+      previous.map(
+        factSignature,
+      ),
+    );
 
-  const after = new Set(
-    current.map(factSignature),
-  );
+  const after =
+    new Set(
+      current.map(
+        factSignature,
+      ),
+    );
 
-  if (before.size !== after.size) {
+  if (
+    before.size !==
+    after.size
+  ) {
     return true;
   }
 
-  for (const value of after) {
-    if (!before.has(value)) {
+  for (
+    const value
+    of after
+  ) {
+    if (
+      !before.has(value)
+    ) {
       return true;
     }
   }
@@ -853,8 +984,11 @@ function authoritativeUrls(
           source.tier ===
             "reputable_secondary",
       )
-      .map((source) =>
-        normalizeUrl(source.url),
+      .map(
+        (source) =>
+          normalizeUrl(
+            source.url,
+          ),
       ),
   );
 }
@@ -863,11 +997,23 @@ function newAuthoritativeSource(
   previous: ResearchSource[],
   current: ResearchSource[],
 ): boolean {
-  const before = authoritativeUrls(previous);
-  const after = authoritativeUrls(current);
+  const before =
+    authoritativeUrls(
+      previous,
+    );
 
-  for (const value of after) {
-    if (!before.has(value)) {
+  const after =
+    authoritativeUrls(
+      current,
+    );
+
+  for (
+    const value
+    of after
+  ) {
+    if (
+      !before.has(value)
+    ) {
       return true;
     }
   }
@@ -879,15 +1025,22 @@ function changeList(
   previous: ForecastState,
   current: ForecastState,
 ): string[] {
-  const changes: string[] = [];
+  const changes:
+    string[] = [];
 
-  if (previous.selection !== current.selection) {
+  if (
+    previous.selection !==
+    current.selection
+  ) {
     changes.push(
       `Selection changed from ${previous.selection} to ${current.selection}.`,
     );
   }
 
-  if (previous.confidence !== current.confidence) {
+  if (
+    previous.confidence !==
+    current.confidence
+  ) {
     changes.push(
       `Confidence changed from ${previous.confidence} to ${current.confidence}.`,
     );
@@ -902,21 +1055,29 @@ function changeList(
     );
   }
 
-  if (previous.goalsView !== current.goalsView) {
+  if (
+    previous.goalsView !==
+    current.goalsView
+  ) {
     changes.push(
       `Goals view changed from ${previous.goalsView} to ${current.goalsView}.`,
     );
   }
 
-  if (previous.bttsView !== current.bttsView) {
+  if (
+    previous.bttsView !==
+    current.bttsView
+  ) {
     changes.push(
       `BTTS view changed from ${previous.bttsView} to ${current.bttsView}.`,
     );
   }
 
   if (
-    previous.lineupState !== "confirmed" &&
-    current.lineupState === "confirmed"
+    previous.lineupState !==
+      "confirmed" &&
+    current.lineupState ===
+      "confirmed"
   ) {
     changes.push(
       "Confirmed starting lineups became available for both teams.",
@@ -933,17 +1094,24 @@ function determineReason(
   evidenceAdvanced: boolean,
 ): RevisionReason {
   if (
-    previous.lineupState !== "confirmed" &&
-    current.lineupState === "confirmed"
+    previous.lineupState !==
+      "confirmed" &&
+    current.lineupState ===
+      "confirmed"
   ) {
     return "confirmed_lineup";
   }
 
-  if (secondsToKickoff <= 15 * 60) {
+  if (
+    secondsToKickoff <=
+    15 * 60
+  ) {
     return "final_prematch";
   }
 
-  if (evidenceAdvanced) {
+  if (
+    evidenceAdvanced
+  ) {
     return "developing_news";
   }
 
@@ -953,24 +1121,52 @@ function determineReason(
 function extractResponseText(
   response: JsonObject,
 ): string {
-  const direct = textValue(response.output_text);
-  if (direct) return direct;
+  const direct =
+    textValue(
+      response.output_text,
+    );
 
-  const output = Array.isArray(response.output)
-    ? response.output
-    : [];
+  if (direct) {
+    return direct;
+  }
 
-  for (const itemValue of output) {
-    const item = asRecord(itemValue);
-    const content = Array.isArray(item.content)
-      ? item.content
+  const output =
+    Array.isArray(
+      response.output,
+    )
+      ? response.output
       : [];
 
-    for (const contentValue of content) {
-      const contentItem = asRecord(contentValue);
+  for (
+    const itemValue
+    of output
+  ) {
+    const item =
+      asRecord(
+        itemValue,
+      );
+
+    const content =
+      Array.isArray(
+        item.content,
+      )
+        ? item.content
+        : [];
+
+    for (
+      const contentValue
+      of content
+    ) {
+      const contentItem =
+        asRecord(
+          contentValue,
+        );
+
       if (
-        contentItem.type === "output_text" &&
-        typeof contentItem.text === "string"
+        contentItem.type ===
+          "output_text" &&
+        typeof contentItem.text ===
+          "string"
       ) {
         return contentItem.text;
       }
@@ -985,105 +1181,195 @@ function extractResponseText(
 function extractResearchSources(
   response: JsonObject,
 ): ResearchSource[] {
-  const found = new Map<string, ResearchSource>();
-  const output = Array.isArray(response.output)
-    ? response.output
-    : [];
+  const found =
+    new Map<
+      string,
+      ResearchSource
+    >();
 
-  for (const itemValue of output) {
-    const item = asRecord(itemValue);
+  const output =
+    Array.isArray(
+      response.output,
+    )
+      ? response.output
+      : [];
 
-    if (item.type !== "web_search_call") {
+  for (
+    const itemValue
+    of output
+  ) {
+    const item =
+      asRecord(
+        itemValue,
+      );
+
+    if (
+      item.type !==
+      "web_search_call"
+    ) {
       continue;
     }
 
-    const action = asRecord(item.action);
-    const sources = Array.isArray(action.sources)
-      ? action.sources
-      : [];
+    const action =
+      asRecord(
+        item.action,
+      );
 
-    for (const sourceValue of sources) {
-      const source = asRecord(sourceValue);
-      const url = textValue(source.url);
-      if (!url) continue;
+    const sources =
+      Array.isArray(
+        action.sources,
+      )
+        ? action.sources
+        : [];
 
-      const normalized = normalizeUrl(url);
-      const tier = classifySource(normalized);
+    for (
+      const sourceValue
+      of sources
+    ) {
+      const source =
+        asRecord(
+          sourceValue,
+        );
 
-      found.set(normalized, {
-        url: normalized,
-        title:
-          textValue(source.title) ||
-          hostname(normalized) ||
+      const url =
+        textValue(
+          source.url,
+        );
+
+      if (!url) {
+        continue;
+      }
+
+      const normalized =
+        normalizeUrl(
+          url,
+        );
+
+      const tier =
+        classifySource(
           normalized,
-        tier,
-        mayDriveForecast:
-          tier !== "prediction_tipster",
-      });
+        );
+
+      found.set(
+        normalized,
+        {
+          url:
+            normalized,
+          title:
+            textValue(
+              source.title,
+            ) ||
+            hostname(
+              normalized,
+            ) ||
+            normalized,
+          tier,
+          mayDriveForecast:
+            tier !==
+            "prediction_tipster",
+        },
+      );
     }
   }
 
-  return [...found.values()];
+  return [
+    ...found.values(),
+  ];
 }
 
 function validateGptPrediction(
   value: unknown,
 ): GptRawPrediction {
-  const object = asRecord(value);
+  const object =
+    asRecord(value);
 
   const materialFactors =
-    Array.isArray(object.materialFactors)
+    Array.isArray(
+      object.materialFactors,
+    )
       ? object.materialFactors
-          .map((item) => textValue(item))
+          .map(
+            (item) =>
+              textValue(item),
+          )
           .filter(Boolean)
           .slice(0, 12)
       : [];
 
   const contradictions =
-    Array.isArray(object.contradictions)
+    Array.isArray(
+      object.contradictions,
+    )
       ? object.contradictions
-          .map((item) => textValue(item))
+          .map(
+            (item) =>
+              textValue(item),
+          )
           .filter(Boolean)
           .slice(0, 10)
       : [];
 
   const missingInformation =
-    Array.isArray(object.missingInformation)
+    Array.isArray(
+      object.missingInformation,
+    )
       ? object.missingInformation
-          .map((item) => textValue(item))
+          .map(
+            (item) =>
+              textValue(item),
+          )
           .filter(Boolean)
           .slice(0, 10)
       : [];
 
   return {
-    selection: selectionValue(object.selection),
-    confidence: confidenceValue(object.confidence),
-    evidenceGrade: evidenceGradeValue(
-      object.evidenceGrade,
-    ),
-    goalsView: goalsViewValue(object.goalsView),
-    bttsView: bttsViewValue(object.bttsView),
+    selection:
+      selectionValue(
+        object.selection,
+      ),
+    confidence:
+      confidenceValue(
+        object.confidence,
+      ),
+    evidenceGrade:
+      evidenceGradeValue(
+        object.evidenceGrade,
+      ),
+    goalsView:
+      goalsViewValue(
+        object.goalsView,
+      ),
+    bttsView:
+      bttsViewValue(
+        object.bttsView,
+      ),
     materialFactors,
     reasoningSummary:
-      textValue(object.reasoningSummary) ||
+      textValue(
+        object.reasoningSummary,
+      ) ||
       "Research evidence was assessed before kickoff.",
     contradictions,
     missingInformation,
   };
 }
 
-async function researchFixture(input: {
-  homeTeam: string;
-  awayTeam: string;
-  competition: string;
-  country: string | null;
-  kickoffAt: string;
-  cutoffAt: string;
-  purpose: RevisionReason;
-  facts: StructuredFact[];
-}): Promise<ResearchResult> {
+async function researchFixture(
+  input: {
+    homeTeam: string;
+    awayTeam: string;
+    competition: string;
+    country: string | null;
+    kickoffAt: string;
+    cutoffAt: string;
+    purpose: RevisionReason;
+    facts: StructuredFact[];
+  },
+): Promise<ResearchResult> {
   const apiKey =
-    process.env.OPENAI_API_KEY?.trim();
+    process.env
+      .OPENAI_API_KEY
+      ?.trim();
 
   if (!apiKey) {
     throw new Error(
@@ -1112,129 +1398,161 @@ async function researchFixture(input: {
     `Purpose: ${input.purpose}`,
     "",
     "Structured facts already available:",
-    JSON.stringify(input.facts),
+    JSON.stringify(
+      input.facts,
+    ),
   ].join("\n");
 
-  const response = await fetch(
-    "https://api.openai.com/v1/responses",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        store: false,
-        reasoning: {
-          effort: "low",
+  const response =
+    await fetch(
+      "https://api.openai.com/v1/responses",
+      {
+        method:
+          "POST",
+        headers: {
+          Authorization:
+            `Bearer ${apiKey}`,
+          "Content-Type":
+            "application/json",
         },
-        tools: [
-          {
-            type: "web_search",
-          },
-        ],
-        tool_choice: "required",
-        include: [
-          "web_search_call.action.sources",
-        ],
-        input: prompt,
-        text: {
-          format: {
-            type: "json_schema",
-            name:
-              "dictaziq_prematch_monitor_v03",
-            strict: true,
-            schema: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                selection: {
-                  type: "string",
-                  enum: [
-                    "home",
-                    "draw",
-                    "away",
-                  ],
-                },
-                confidence: {
-                  type: "string",
-                  enum: [
-                    "high",
-                    "medium",
-                    "low",
-                    "very_low",
-                  ],
-                },
-                evidenceGrade: {
-                  type: "string",
-                  enum: [
-                    "A",
-                    "B",
-                    "C",
-                    "D",
-                    "E",
-                  ],
-                },
-                goalsView: {
-                  type: "string",
-                  enum: [
-                    "over_2_5",
-                    "under_2_5",
-                    "neutral",
-                  ],
-                },
-                bttsView: {
-                  type: "string",
-                  enum: [
-                    "yes",
-                    "no",
-                    "neutral",
-                  ],
-                },
-                materialFactors: {
-                  type: "array",
-                  items: {
-                    type: "string",
+        body:
+          JSON.stringify({
+            model:
+              OPENAI_MODEL,
+            store:
+              false,
+            reasoning: {
+              effort:
+                "low",
+            },
+            tools: [
+              {
+                type:
+                  "web_search",
+              },
+            ],
+            tool_choice:
+              "required",
+            include: [
+              "web_search_call.action.sources",
+            ],
+            input:
+              prompt,
+            text: {
+              format: {
+                type:
+                  "json_schema",
+                name:
+                  "dictaziq_prematch_monitor_v03",
+                strict:
+                  true,
+                schema: {
+                  type:
+                    "object",
+                  additionalProperties:
+                    false,
+                  properties: {
+                    selection: {
+                      type:
+                        "string",
+                      enum: [
+                        "home",
+                        "draw",
+                        "away",
+                      ],
+                    },
+                    confidence: {
+                      type:
+                        "string",
+                      enum: [
+                        "high",
+                        "medium",
+                        "low",
+                        "very_low",
+                      ],
+                    },
+                    evidenceGrade: {
+                      type:
+                        "string",
+                      enum: [
+                        "A",
+                        "B",
+                        "C",
+                        "D",
+                        "E",
+                      ],
+                    },
+                    goalsView: {
+                      type:
+                        "string",
+                      enum: [
+                        "over_2_5",
+                        "under_2_5",
+                        "neutral",
+                      ],
+                    },
+                    bttsView: {
+                      type:
+                        "string",
+                      enum: [
+                        "yes",
+                        "no",
+                        "neutral",
+                      ],
+                    },
+                    materialFactors: {
+                      type:
+                        "array",
+                      items: {
+                        type:
+                          "string",
+                      },
+                    },
+                    reasoningSummary: {
+                      type:
+                        "string",
+                    },
+                    contradictions: {
+                      type:
+                        "array",
+                      items: {
+                        type:
+                          "string",
+                      },
+                    },
+                    missingInformation: {
+                      type:
+                        "array",
+                      items: {
+                        type:
+                          "string",
+                      },
+                    },
                   },
-                },
-                reasoningSummary: {
-                  type: "string",
-                },
-                contradictions: {
-                  type: "array",
-                  items: {
-                    type: "string",
-                  },
-                },
-                missingInformation: {
-                  type: "array",
-                  items: {
-                    type: "string",
-                  },
+                  required: [
+                    "selection",
+                    "confidence",
+                    "evidenceGrade",
+                    "goalsView",
+                    "bttsView",
+                    "materialFactors",
+                    "reasoningSummary",
+                    "contradictions",
+                    "missingInformation",
+                  ],
                 },
               },
-              required: [
-                "selection",
-                "confidence",
-                "evidenceGrade",
-                "goalsView",
-                "bttsView",
-                "materialFactors",
-                "reasoningSummary",
-                "contradictions",
-                "missingInformation",
-              ],
             },
-          },
-        },
-      }),
-      signal:
-        AbortSignal.timeout(60_000),
-    },
-  );
+          }),
+        signal:
+          AbortSignal.timeout(
+            60_000,
+          ),
+      },
+    );
 
-  const rawText = await response.text();
+  const rawText =
+    await response.text();
 
   if (!response.ok) {
     throw new Error(
@@ -1243,14 +1561,20 @@ async function researchFixture(input: {
   }
 
   const responseObject =
-    JSON.parse(rawText) as JsonObject;
+    JSON.parse(
+      rawText,
+    ) as JsonObject;
 
   const outputText =
-    extractResponseText(responseObject);
+    extractResponseText(
+      responseObject,
+    );
 
   const prediction =
     validateGptPrediction(
-      JSON.parse(outputText),
+      JSON.parse(
+        outputText,
+      ),
     );
 
   const sources =
@@ -1258,7 +1582,9 @@ async function researchFixture(input: {
       responseObject,
     );
 
-  if (sources.length === 0) {
+  if (
+    sources.length === 0
+  ) {
     throw new Error(
       "GPT research response used no attributable web sources.",
     );
@@ -1266,7 +1592,9 @@ async function researchFixture(input: {
 
   return {
     responseId:
-      textValue(responseObject.id) ||
+      textValue(
+        responseObject.id,
+      ) ||
       "unknown",
     prediction,
     sources,
@@ -1274,261 +1602,306 @@ async function researchFixture(input: {
 }
 
 async function main() {
-  const date = requestedDate();
-  const persist = persistRequested();
+  const date =
+    requestedDate();
+
+  const persist =
+    persistRequested();
+
   const windowMinutes =
     positiveIntegerFlag(
       "window-minutes",
       180,
     );
-  const limit =
-    optionalPositiveIntegerFlag("limit");
 
-  if (windowMinutes > 2880) {
+  const limit =
+    optionalPositiveIntegerFlag(
+      "limit",
+    );
+
+  if (
+    windowMinutes >
+    2880
+  ) {
     throw new Error(
       "--window-minutes cannot exceed 2880.",
     );
   }
 
-  const sql: SqlClient =
-    neon(getDatabaseUrl());
+  const sql:
+    SqlClient =
+    neon(
+      getDatabaseUrl(),
+    );
 
   const runStartedAt =
-    await databaseNow(sql);
+    await databaseNow(
+      sql,
+    );
 
   console.log(
     "DictazIQ Authoritative GPT Pre-Match Monitor",
   );
-  console.log(`Runner: ${RUNNER_VERSION}`);
-  console.log(`Date: ${date}`);
+
+  console.log(
+    `Runner: ${RUNNER_VERSION}`,
+  );
+
+  console.log(
+    `Date: ${date}`,
+  );
+
   console.log(
     `Mode: ${persist ? "PERSIST" : "READ ONLY"}`,
   );
+
   console.log(
     `Window: ${windowMinutes} minutes`,
   );
+
   console.log(
     `Limit: ${limit ?? "ALL"}`,
   );
 
-  const rows = await sql`
-    SELECT
-      route.baseline_prediction_id,
-      route.fixture_id,
-      route.route,
-      route.route_reason,
-      route.model_version,
-      route.input_cutoff_at
-        AS baseline_input_cutoff_at,
-      route.published_at
-        AS baseline_published_at,
-      route.input_snapshot
-        AS baseline_input_snapshot,
-      route.output
-        AS baseline_output,
+  console.log(
+    "Provider context: DATABASE ONLY",
+  );
 
-      fixture.provider_id,
-      fixture.kickoff_at,
-      fixture.status,
-
-      competition.name
-        AS competition_name,
-      competition.country
-        AS competition_country,
-
-      home.id
-        AS home_team_id,
-      home.name
-        AS home_team_name,
-      away.id
-        AS away_team_id,
-      away.name
-        AS away_team_name,
-
-      home_mapping.source_team_id
-        AS home_api_team_id,
-      away_mapping.source_team_id
-        AS away_api_team_id,
-
-      latest_revision.id
-        AS latest_revision_id,
-      latest_revision.revision_number
-        AS latest_revision_number,
-      latest_revision.input_cutoff_at
-        AS latest_revision_input_cutoff_at,
-      latest_revision.published_at
-        AS latest_revision_published_at,
-      latest_revision.selection
-        AS latest_revision_selection,
-      latest_revision.confidence
-        AS latest_revision_confidence,
-      latest_revision.evidence_grade
-        AS latest_revision_evidence_grade,
-      latest_revision.lineup_state
-        AS latest_revision_lineup_state,
-      latest_revision.input_snapshot
-        AS latest_revision_input_snapshot,
-      latest_revision.output
-        AS latest_revision_output,
-
-      clock_timestamp()
-        AS checked_at
-
-    FROM public.production_forecast_baselines_v01
-      AS route
-
-    JOIN public.fixtures
-      AS fixture
-      ON fixture.id =
-        route.fixture_id
-
-    JOIN public.seasons
-      AS season
-      ON season.id =
-        fixture.season_id
-
-    JOIN public.competitions
-      AS competition
-      ON competition.id =
-        season.competition_id
-
-    JOIN public.teams
-      AS home
-      ON home.id =
-        fixture.home_team_id
-
-    JOIN public.teams
-      AS away
-      ON away.id =
-        fixture.away_team_id
-
-    LEFT JOIN public.team_source_mappings
-      AS home_mapping
-      ON home_mapping.team_id =
-        fixture.home_team_id
-      AND home_mapping.source =
-        'api-football'
-      AND home_mapping.is_verified =
-        true
-
-    LEFT JOIN public.team_source_mappings
-      AS away_mapping
-      ON away_mapping.team_id =
-        fixture.away_team_id
-      AND away_mapping.source =
-        'api-football'
-      AND away_mapping.is_verified =
-        true
-
-    LEFT JOIN LATERAL (
+  const rows =
+    await sql`
       SELECT
-        revision.*
+        route.baseline_prediction_id,
+        route.fixture_id,
+        route.route,
+        route.route_reason,
+        route.model_version,
+        route.input_cutoff_at
+          AS baseline_input_cutoff_at,
+        route.published_at
+          AS baseline_published_at,
+        route.input_snapshot
+          AS baseline_input_snapshot,
+        route.output
+          AS baseline_output,
 
-      FROM public.forecast_revisions
-        AS revision
+        fixture.provider_id,
+        fixture.kickoff_at,
+        fixture.status,
 
-      WHERE revision.baseline_prediction_id =
-        route.baseline_prediction_id
+        competition.name
+          AS competition_name,
+        competition.country
+          AS competition_country,
 
-        AND revision.is_demo =
-          false
+        home.id
+          AS home_team_id,
+        home.name
+          AS home_team_name,
+        away.id
+          AS away_team_id,
+        away.name
+          AS away_team_name,
 
-        AND revision.published_at
-          IS NOT NULL
+        latest_revision.id
+          AS latest_revision_id,
+        latest_revision.revision_number
+          AS latest_revision_number,
+        latest_revision.input_cutoff_at
+          AS latest_revision_input_cutoff_at,
+        latest_revision.published_at
+          AS latest_revision_published_at,
+        latest_revision.selection
+          AS latest_revision_selection,
+        latest_revision.confidence
+          AS latest_revision_confidence,
+        latest_revision.evidence_grade
+          AS latest_revision_evidence_grade,
+        latest_revision.lineup_state
+          AS latest_revision_lineup_state,
+        latest_revision.input_snapshot
+          AS latest_revision_input_snapshot,
+        latest_revision.output
+          AS latest_revision_output,
 
-        AND revision.input_cutoff_at <
+        clock_timestamp()
+          AS checked_at
+
+      FROM public.production_forecast_baselines_v01
+        AS route
+
+      JOIN public.fixtures
+        AS fixture
+        ON fixture.id =
+          route.fixture_id
+
+      JOIN public.seasons
+        AS season
+        ON season.id =
+          fixture.season_id
+
+      JOIN public.competitions
+        AS competition
+        ON competition.id =
+          season.competition_id
+
+      JOIN public.teams
+        AS home
+        ON home.id =
+          fixture.home_team_id
+
+      JOIN public.teams
+        AS away
+        ON away.id =
+          fixture.away_team_id
+
+      LEFT JOIN LATERAL (
+        SELECT
+          revision.*
+
+        FROM public.forecast_revisions
+          AS revision
+
+        WHERE revision.baseline_prediction_id =
+          route.baseline_prediction_id
+
+          AND revision.is_demo =
+            false
+
+          AND revision.published_at
+            IS NOT NULL
+
+          AND revision.input_cutoff_at <
+            fixture.kickoff_at
+
+          AND revision.generated_at <
+            fixture.kickoff_at
+
+          AND revision.published_at <
+            fixture.kickoff_at
+
+        ORDER BY
+          revision.revision_number DESC,
+          revision.published_at DESC
+
+        LIMIT 1
+      ) AS latest_revision
+        ON true
+
+      WHERE fixture.is_demo =
+        false
+
+        AND fixture.provider =
+          'api-football'
+
+        AND fixture.status =
+          'scheduled'
+
+        AND (
           fixture.kickoff_at
+          AT TIME ZONE 'UTC'
+        )::date =
+          ${date}::date
 
-        AND revision.generated_at <
-          fixture.kickoff_at
+        AND fixture.kickoff_at >
+          ${runStartedAt}::timestamptz
 
-        AND revision.published_at <
-          fixture.kickoff_at
+        AND fixture.kickoff_at <=
+          ${runStartedAt}::timestamptz +
+          (
+            ${windowMinutes} *
+            INTERVAL '1 minute'
+          )
 
       ORDER BY
-        revision.revision_number DESC,
-        revision.published_at DESC
-
-      LIMIT 1
-    ) AS latest_revision
-      ON true
-
-    WHERE fixture.is_demo =
-      false
-
-      AND fixture.provider =
-        'api-football'
-
-      AND fixture.status =
-        'scheduled'
-
-      AND (
-        fixture.kickoff_at
-        AT TIME ZONE 'UTC'
-      )::date =
-        ${date}::date
-
-      AND fixture.kickoff_at >
-        ${runStartedAt}::timestamptz
-
-      AND fixture.kickoff_at <=
-        ${runStartedAt}::timestamptz +
-        (${windowMinutes} * INTERVAL '1 minute')
-
-    ORDER BY
-      fixture.kickoff_at,
-      fixture.provider_id
-  `;
+        fixture.kickoff_at,
+        fixture.provider_id
+    `;
 
   const candidates =
     limit === null
       ? rows
-      : rows.slice(0, limit);
+      : rows.slice(
+          0,
+          limit,
+        );
 
   console.log(
     `Authoritative fixtures in monitoring window: ${rows.length}`,
   );
+
   console.log(
     `Fixtures selected this run: ${candidates.length}`,
   );
 
-  let providerQuotaExhausted = false;
-  let gptCalls = 0;
-  let materialRevisions = 0;
-  let suppressed = 0;
-  let inserted = 0;
-  let published = 0;
-  let skipped = 0;
-  let providerDeferred = 0;
-  let researchFailed = 0;
+  let gptCalls =
+    0;
 
-  for (const rawRow of candidates) {
-    const row = rawRow as JsonObject;
+  let materialRevisions =
+    0;
+
+  let suppressed =
+    0;
+
+  let inserted =
+    0;
+
+  let published =
+    0;
+
+  let skipped =
+    0;
+
+  let researchFailed =
+    0;
+
+  for (
+    const rawRow
+    of candidates
+  ) {
+    const row =
+      rawRow as JsonObject;
 
     console.log("");
+
     console.log(
       "========================================",
     );
+
     console.log(
       `${row.home_team_name} vs ${row.away_team_name}`,
     );
+
     console.log(
       `Route: ${String(row.route).toUpperCase()}`,
     );
+
     console.log(
       `Baseline model: ${row.model_version}`,
     );
 
-    const kickoffAt = iso(row.kickoff_at);
-    const checkedAt =
-      await databaseNow(sql);
-    const secondsToKickoff =
-      Math.floor(
-        (ms(kickoffAt) - ms(checkedAt)) /
-          1000,
+    const kickoffAt =
+      iso(
+        row.kickoff_at,
       );
 
-    console.log(`Kickoff: ${kickoffAt}`);
+    const checkedAt =
+      await databaseNow(
+        sql,
+      );
+
+    const secondsToKickoff =
+      Math.floor(
+        (
+          ms(kickoffAt) -
+          ms(checkedAt)
+        ) /
+        1000,
+      );
+
+    console.log(
+      `Kickoff: ${kickoffAt}`,
+    );
+
     console.log(
       `Seconds to kickoff: ${secondsToKickoff}`,
     );
@@ -1540,210 +1913,152 @@ async function main() {
       console.log(
         "SKIP: fixture is inside the 2-minute pre-kickoff safety lock.",
       );
-      skipped += 1;
+
+      skipped +=
+        1;
+
       continue;
     }
 
     const hasRevision =
-      row.latest_revision_id !== null &&
-      row.latest_revision_id !== undefined;
+      row.latest_revision_id !==
+        null &&
+      row.latest_revision_id !==
+        undefined;
 
-    const active = hasRevision
-      ? extractRevisionState(row)
-      : extractBaselineState(
-          String(row.route),
-          row.baseline_output,
-        );
+    const active =
+      hasRevision
+        ? extractRevisionState(
+            row,
+          )
+        : extractBaselineState(
+            String(
+              row.route,
+            ),
+            row.baseline_output,
+          );
 
-    const activePublishedAt = hasRevision
-      ? iso(row.latest_revision_published_at)
-      : iso(row.baseline_published_at);
+    const activePublishedAt =
+      hasRevision
+        ? iso(
+            row.latest_revision_published_at,
+          )
+        : iso(
+            row.baseline_published_at,
+          );
 
-    const previousInputSnapshot = hasRevision
-      ? row.latest_revision_input_snapshot
-      : row.baseline_input_snapshot;
+    const previousInputSnapshot =
+      hasRevision
+        ? row.latest_revision_input_snapshot
+        : row.baseline_input_snapshot;
 
     const priorFacts =
-      previousFacts(previousInputSnapshot);
+      previousFacts(
+        previousInputSnapshot,
+      );
+
     const priorSources =
-      previousSources(previousInputSnapshot);
+      previousSources(
+        previousInputSnapshot,
+      );
 
     console.log(
       `ACTIVE: ${active.selection.toUpperCase()} / ${active.confidence} / ${active.evidenceGrade}`,
     );
+
     console.log(
       `Active revision: ${hasRevision ? row.latest_revision_number : "BASELINE"}`,
     );
 
-    let injuries: unknown[] = [];
-    let lineups: unknown[] = [];
-    let providerObservedAt = checkedAt;
-
-    if (!providerQuotaExhausted) {
-      try {
-        const apiFixtureId =
-          Number(row.provider_id);
-
-        if (!Number.isInteger(apiFixtureId)) {
-          throw new Error(
-            "Fixture has invalid API-Football provider id.",
-          );
-        }
-
-        const results =
-          await Promise.all([
-            fetchFixtureInjuries(apiFixtureId),
-            fetchFixtureLineups(apiFixtureId),
-          ]);
-
-        injuries = results[0] as unknown[];
-        lineups = results[1] as unknown[];
-        providerObservedAt =
-          await databaseNow(sql);
-      } catch (error) {
-        if (isQuotaError(error)) {
-          providerQuotaExhausted = true;
-          providerDeferred += 1;
-          console.log(
-            "API-Football: QUOTA EXHAUSTED — provider polling disabled for the remainder of this monitor run.",
-          );
-        } else {
-          providerDeferred += 1;
-          console.log(
-            `API-Football: DEFERRED — ${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
-      }
-    } else {
-      providerDeferred += 1;
-      console.log(
-        "API-Football: SKIPPED — quota circuit breaker is active.",
+    /*
+     * DB-ONLY PRODUCTION CONTRACT
+     *
+     * API-Football is an ingestion source only.
+     * The pre-match monitor consumes persisted
+     * context evidence and never polls the provider.
+     */
+    const newFacts =
+      await storedContextFacts(
+        sql,
+        String(
+          row.fixture_id,
+        ),
+        checkedAt,
+        kickoffAt,
       );
-    }
 
-    const homeApiTeamId =
-      numberValue(row.home_api_team_id);
-    const awayApiTeamId =
-      numberValue(row.away_api_team_id);
+    const lineupFacts =
+      newFacts.filter(
+        (fact) =>
+          fact.kind ===
+            "confirmed_or_provider_lineup" ||
+          fact.kind ===
+            "lineup",
+      );
 
-    const homeLineup =
-      homeApiTeamId === null
-        ? undefined
-        : lineups.find(
-            (lineup) =>
-              teamIdFromRecord(lineup) ===
-              homeApiTeamId,
-          );
+    const homeConfirmed =
+      lineupFacts.some(
+        (fact) =>
+          fact.side ===
+          "home",
+      );
 
-    const awayLineup =
-      awayApiTeamId === null
-        ? undefined
-        : lineups.find(
-            (lineup) =>
-              teamIdFromRecord(lineup) ===
-              awayApiTeamId,
-          );
-
-    const homeStarters =
-      homeLineup
-        ? arrayOfRecords(
-            asRecord(homeLineup).startXI,
-          ).length
-        : 0;
-
-    const awayStarters =
-      awayLineup
-        ? arrayOfRecords(
-            asRecord(awayLineup).startXI,
-          ).length
-        : 0;
+    const awayConfirmed =
+      lineupFacts.some(
+        (fact) =>
+          fact.side ===
+          "away",
+      );
 
     const bothConfirmed =
-      homeStarters >= 11 &&
-      awayStarters >= 11;
+      homeConfirmed &&
+      awayConfirmed;
 
-    const lineupState: LineupState =
+    const lineupState:
+      LineupState =
       bothConfirmed
         ? "confirmed"
-        : lineups.length > 0
+        : lineupFacts.length > 0
           ? "unconfirmed"
           : "unavailable";
 
-    const newFacts: StructuredFact[] = [];
-
-    for (const injury of injuries) {
-      const teamId = teamIdFromRecord(injury);
-      let side: "home" | "away" | "match" =
-        "match";
-
-      if (
-        homeApiTeamId !== null &&
-        teamId === homeApiTeamId
-      ) {
-        side = "home";
-      } else if (
-        awayApiTeamId !== null &&
-        teamId === awayApiTeamId
-      ) {
-        side = "away";
-      }
-
-      newFacts.push({
-        kind: "availability",
-        side,
-        description:
-          injuryDescription(injury),
-        source: "api-football",
-        observedAt: providerObservedAt,
-      });
-    }
-
-    if (homeLineup && homeStarters >= 11) {
-      newFacts.push(
-        lineupFact(
-          homeLineup,
-          "home",
-          providerObservedAt,
-        ),
-      );
-    }
-
-    if (awayLineup && awayStarters >= 11) {
-      newFacts.push(
-        lineupFact(
-          awayLineup,
-          "away",
-          providerObservedAt,
-        ),
-      );
-    }
-
     const mergedFactsMap =
-      new Map<string, StructuredFact>();
+      new Map<
+        string,
+        StructuredFact
+      >();
 
     for (
       const fact
-      of [...priorFacts, ...newFacts]
+      of [
+        ...priorFacts,
+        ...newFacts,
+      ]
     ) {
       mergedFactsMap.set(
-        factSignature(fact),
+        factSignature(
+          fact,
+        ),
         fact,
       );
     }
 
     const facts =
-      [...mergedFactsMap.values()]
-        .slice(0, 50);
+      [
+        ...mergedFactsMap.values(),
+      ].slice(
+        0,
+        50,
+      );
 
     console.log(
       `Structured facts: ${facts.length}`,
     );
+
     console.log(
-      `API injuries: ${injuries.length}`,
+      `Persisted context facts: ${newFacts.length}`,
     );
-    console.log(
-      `API lineup records: ${lineups.length}`,
-    );
+
     console.log(
       `Confirmed both XI: ${bothConfirmed ? "YES" : "NO"}`,
     );
@@ -1751,66 +2066,102 @@ async function main() {
     const provisionalPurpose:
       RevisionReason =
       bothConfirmed &&
-      active.lineupState !== "confirmed"
+      active.lineupState !==
+        "confirmed"
         ? "confirmed_lineup"
-        : secondsToKickoff <= 15 * 60
+        : secondsToKickoff <=
+            15 * 60
           ? "final_prematch"
           : "scheduled_refresh";
 
     const researchCutoff =
-      await databaseNow(sql);
+      await databaseNow(
+        sql,
+      );
 
     console.log(
       `Purpose: ${provisionalPurpose}`,
     );
-    console.log("GPT research: START");
 
-    let research: ResearchResult;
+    console.log(
+      "GPT research: START",
+    );
+
+    let research:
+      ResearchResult;
 
     try {
-      gptCalls += 1;
-      research = await researchFixture({
-        homeTeam:
-          String(row.home_team_name),
-        awayTeam:
-          String(row.away_team_name),
-        competition:
-          String(row.competition_name),
-        country:
-          row.competition_country === null
-            ? null
-            : String(row.competition_country),
-        kickoffAt,
-        cutoffAt: researchCutoff,
-        purpose: provisionalPurpose,
-        facts,
-      });
-    } catch (error) {
-      researchFailed += 1;
-      skipped += 1;
+      gptCalls +=
+        1;
+
+      research =
+        await researchFixture({
+          homeTeam:
+            String(
+              row.home_team_name,
+            ),
+          awayTeam:
+            String(
+              row.away_team_name,
+            ),
+          competition:
+            String(
+              row.competition_name,
+            ),
+          country:
+            row.competition_country ===
+              null
+              ? null
+              : String(
+                  row.competition_country,
+                ),
+          kickoffAt,
+          cutoffAt:
+            researchCutoff,
+          purpose:
+            provisionalPurpose,
+          facts,
+        });
+    } catch (
+      error
+    ) {
+      researchFailed +=
+        1;
+
+      skipped +=
+        1;
+
       console.log(
         `GPT research failed: ${error instanceof Error ? error.message : String(error)}`,
       );
+
       continue;
     }
 
     const completedAt =
-      await databaseNow(sql);
+      await databaseNow(
+        sql,
+      );
 
     if (
       ms(completedAt) >=
       ms(kickoffAt) -
-        SAFETY_LOCK_SECONDS * 1000
+        SAFETY_LOCK_SECONDS *
+          1000
     ) {
-      skipped += 1;
+      skipped +=
+        1;
+
       console.log(
         "SKIP: research completed inside the 2-minute safety lock; result discarded.",
       );
+
       continue;
     }
 
     const rawPrediction =
       research.prediction;
+
     const policyPrediction =
       applySourcePolicy(
         rawPrediction,
@@ -1818,7 +2169,8 @@ async function main() {
         lineupState,
       );
 
-    const proposed: ForecastState = {
+    const proposed:
+      ForecastState = {
       selection:
         policyPrediction.selection,
       confidence:
@@ -1835,6 +2187,7 @@ async function main() {
     console.log(
       `GPT RAW: ${rawPrediction.selection.toUpperCase()} / ${rawPrediction.confidence} / ${rawPrediction.evidenceGrade}`,
     );
+
     console.log(
       `POLICY: ${proposed.selection.toUpperCase()} / ${proposed.confidence} / ${proposed.evidenceGrade}`,
     );
@@ -1845,12 +2198,14 @@ async function main() {
           source.tier ===
           "official_primary",
       ).length;
+
     const reputable =
       research.sources.filter(
         (source) =>
           source.tier ===
           "reputable_secondary",
       ).length;
+
     const tipster =
       research.sources.filter(
         (source) =>
@@ -1861,21 +2216,34 @@ async function main() {
     console.log(
       `Web sources: ${research.sources.length}`,
     );
-    console.log(`Official: ${official}`);
+
+    console.log(
+      `Official: ${official}`,
+    );
+
     console.log(
       `Reputable secondary: ${reputable}`,
     );
-    console.log(`Tipster: ${tipster}`);
+
+    console.log(
+      `Tipster: ${tipster}`,
+    );
 
     const evidenceAdvanced =
-      factsChanged(priorFacts, facts) ||
+      factsChanged(
+        priorFacts,
+        facts,
+      ) ||
       newAuthoritativeSource(
         priorSources,
         research.sources,
       );
 
     const changes =
-      changeList(active, proposed);
+      changeList(
+        active,
+        proposed,
+      );
 
     /*
      * Hard revisions must be evidence-backed.
@@ -1884,10 +2252,7 @@ async function main() {
      * structured evidence and always bypasses the
      * cooldown. A 1X2 selection change may also
      * bypass the cooldown, but only when the
-     * evidence set advanced. This prevents normal
-     * GPT/web-search stochasticity from changing a
-     * published forecast when no new authoritative
-     * information exists.
+     * evidence set advanced.
      */
     const confirmedLineupTrigger =
       active.lineupState !==
@@ -1897,7 +2262,7 @@ async function main() {
 
     const selectionChanged =
       active.selection !==
-        proposed.selection;
+      proposed.selection;
 
     const hardTrigger =
       confirmedLineupTrigger ||
@@ -1920,9 +2285,13 @@ async function main() {
       Math.max(
         0,
         Math.floor(
-          (ms(completedAt) -
-            ms(activePublishedAt)) /
-            1000,
+          (
+            ms(completedAt) -
+            ms(
+              activePublishedAt,
+            )
+          ) /
+          1000,
         ),
       );
 
@@ -1931,7 +2300,8 @@ async function main() {
       SOFT_COOLDOWN_SECONDS;
 
     const finalPrematch =
-      secondsToKickoff <= 15 * 60;
+      secondsToKickoff <=
+      15 * 60;
 
     const softTrigger =
       !hardTrigger &&
@@ -1944,25 +2314,37 @@ async function main() {
 
     const shouldRevise =
       changes.length > 0 &&
-      (hardTrigger || softTrigger);
+      (
+        hardTrigger ||
+        softTrigger
+      );
 
     console.log(
       `Evidence advanced: ${evidenceAdvanced ? "YES" : "NO"}`,
     );
+
     console.log(
       `Hard trigger: ${hardTrigger ? "YES" : "NO"}`,
     );
+
     console.log(
       `Soft trigger: ${softTrigger ? "YES" : "NO"}`,
     );
 
-    if (!shouldRevise) {
-      suppressed += 1;
+    if (
+      !shouldRevise
+    ) {
+      suppressed +=
+        1;
+
       console.log(
         "NO REVISION: materiality gate suppressed update.",
       );
 
-      if (changes.length === 0) {
+      if (
+        changes.length ===
+        0
+      ) {
         console.log(
           "- No forecast field changed.",
         );
@@ -1986,7 +2368,8 @@ async function main() {
       continue;
     }
 
-    materialRevisions += 1;
+    materialRevisions +=
+      1;
 
     const reason =
       determineReason(
@@ -1996,9 +2379,17 @@ async function main() {
         evidenceAdvanced,
       );
 
-    console.log("REVISION REQUIRED:");
-    for (const change of changes) {
-      console.log(`- ${change}`);
+    console.log(
+      "REVISION REQUIRED:",
+    );
+
+    for (
+      const change
+      of changes
+    ) {
+      console.log(
+        `- ${change}`,
+      );
     }
 
     const nextRevisionNumber =
@@ -2008,92 +2399,145 @@ async function main() {
           ) + 1
         : 1;
 
-    const inputSnapshot: JsonObject = {
+    const inputSnapshot:
+      JsonObject = {
       runnerVersion:
         RUNNER_VERSION,
+
       authoritativeRoute: {
         baselinePredictionId:
           String(
             row.baseline_prediction_id,
           ),
         route:
-          String(row.route),
+          String(
+            row.route,
+          ),
         routeReason:
-          String(row.route_reason),
+          String(
+            row.route_reason,
+          ),
         modelVersion:
-          String(row.model_version),
+          String(
+            row.model_version,
+          ),
       },
+
       fixture: {
-        id: String(row.fixture_id),
-        provider: "api-football",
+        id:
+          String(
+            row.fixture_id,
+          ),
+        provider:
+          "api-football",
         providerId:
-          String(row.provider_id),
+          String(
+            row.provider_id,
+          ),
         homeTeam:
-          String(row.home_team_name),
+          String(
+            row.home_team_name,
+          ),
         awayTeam:
-          String(row.away_team_name),
+          String(
+            row.away_team_name,
+          ),
         competition:
-          String(row.competition_name),
+          String(
+            row.competition_name,
+          ),
         country:
-          row.competition_country === null
+          row.competition_country ===
+            null
             ? null
             : String(
                 row.competition_country,
               ),
         kickoffAt,
       },
-      purpose: reason,
-      previousActiveForecast: active,
+
+      purpose:
+        reason,
+
+      previousActiveForecast:
+        active,
+
       structuredEvidence: {
-        providerQuotaExhausted,
+        source:
+          "database",
         facts,
       },
+
       webResearch: {
         responseId:
           research.responseId,
-        model: OPENAI_MODEL,
+        model:
+          OPENAI_MODEL,
         sources:
           research.sources,
       },
+
       sourcePolicy: {
         official,
         reputableSecondary:
           reputable,
         tipster,
       },
+
       researchCompletedAt:
         completedAt,
     };
 
-    const output: JsonObject = {
-      engine: "gpt_research",
+    const output:
+      JsonObject = {
+      engine:
+        "gpt_research",
+
       engineVersion:
         GPT_ENGINE_VERSION,
+
       forecast:
         proposed.selection,
+
       selection:
         proposed.selection,
+
       confidence:
         proposed.confidence,
+
       evidenceGrade:
         proposed.evidenceGrade,
+
       goalsView:
         proposed.goalsView,
+
       bttsView:
         proposed.bttsView,
+
       lineupState:
         proposed.lineupState,
+
       materialFactors:
         policyPrediction.materialFactors,
+
       reasoningSummary:
         policyPrediction.reasoningSummary,
+
       contradictions:
         policyPrediction.contradictions,
+
       missingInformation:
         policyPrediction.missingInformation,
-      probability: null,
-      calibratedProbability: null,
-      modelOverride: false,
+
+      probability:
+        null,
+
+      calibratedProbability:
+        null,
+
+      modelOverride:
+        false,
+
       sourcePolicy: {
         official,
         reputableSecondary:
@@ -2103,94 +2547,133 @@ async function main() {
     };
 
     const inputSha256 =
-      canonicalSha256(inputSnapshot);
+      canonicalSha256(
+        inputSnapshot,
+      );
+
     const outputSha256 =
-      canonicalSha256(output);
+      canonicalSha256(
+        output,
+      );
 
     console.log(
       `Input SHA: ${inputSha256}`,
     );
+
     console.log(
       `Output SHA: ${outputSha256}`,
     );
 
-    if (!persist) {
+    if (
+      !persist
+    ) {
       console.log(
         "READ ONLY: revision not persisted.",
       );
+
       continue;
     }
 
     const finalDbNow =
-      await databaseNow(sql);
+      await databaseNow(
+        sql,
+      );
 
     if (
       ms(finalDbNow) >=
       ms(kickoffAt) -
-        SAFETY_LOCK_SECONDS * 1000
+        SAFETY_LOCK_SECONDS *
+          1000
     ) {
-      skipped += 1;
+      skipped +=
+        1;
+
       console.log(
         "SKIP: database clock entered safety lock before insert.",
       );
+
       continue;
     }
 
-    const insertRows: JsonObject[] = await sql`
-      INSERT INTO public.forecast_revisions (
-        baseline_prediction_id,
-        fixture_id,
-        is_demo,
-        revision_number,
-        revision_version,
-        reason,
-        engine,
-        engine_version,
-        lineup_state,
-        kickoff_at,
-        input_cutoff_at,
-        selection,
-        confidence,
-        evidence_grade,
-        material_changes,
-        input_sha256,
-        output_sha256,
-        input_snapshot,
-        output
-      )
-      VALUES (
-        ${String(
-          row.baseline_prediction_id,
-        )}::uuid,
-        ${String(
-          row.fixture_id,
-        )}::uuid,
-        false,
-        ${nextRevisionNumber},
-        ${REVISION_VERSION},
-        ${reason},
-        'gpt_research',
-        ${GPT_ENGINE_VERSION},
-        ${proposed.lineupState},
-        ${kickoffAt}::timestamptz,
-        ${completedAt}::timestamptz,
-        ${proposed.selection},
-        ${proposed.confidence},
-        ${proposed.evidenceGrade},
-        ${JSON.stringify(changes)}::jsonb,
-        ${inputSha256},
-        ${outputSha256},
-        ${JSON.stringify(
-          inputSnapshot,
-        )}::jsonb,
-        ${JSON.stringify(output)}::jsonb
-      )
+    const insertRows:
+      JsonObject[] =
+      await sql`
+        INSERT INTO public.forecast_revisions (
+          baseline_prediction_id,
+          fixture_id,
+          is_demo,
+          revision_number,
+          revision_version,
+          reason,
+          engine,
+          engine_version,
+          lineup_state,
+          kickoff_at,
+          input_cutoff_at,
+          selection,
+          confidence,
+          evidence_grade,
+          material_changes,
+          input_sha256,
+          output_sha256,
+          input_snapshot,
+          output
+        )
+        VALUES (
+          ${String(
+            row.baseline_prediction_id,
+          )}::uuid,
 
-      RETURNING
-        id,
-        revision_number,
-        generated_at
-    `;
+          ${String(
+            row.fixture_id,
+          )}::uuid,
+
+          false,
+
+          ${nextRevisionNumber},
+
+          ${REVISION_VERSION},
+
+          ${reason},
+
+          'gpt_research',
+
+          ${GPT_ENGINE_VERSION},
+
+          ${proposed.lineupState},
+
+          ${kickoffAt}::timestamptz,
+
+          ${completedAt}::timestamptz,
+
+          ${proposed.selection},
+
+          ${proposed.confidence},
+
+          ${proposed.evidenceGrade},
+
+          ${JSON.stringify(
+            changes,
+          )}::jsonb,
+
+          ${inputSha256},
+
+          ${outputSha256},
+
+          ${JSON.stringify(
+            inputSnapshot,
+          )}::jsonb,
+
+          ${JSON.stringify(
+            output,
+          )}::jsonb
+        )
+
+        RETURNING
+          id,
+          revision_number,
+          generated_at
+      `;
 
     assert.equal(
       insertRows.length,
@@ -2198,31 +2681,36 @@ async function main() {
       "Revision insert did not return exactly one row.",
     );
 
-    inserted += 1;
+    inserted +=
+      1;
 
     const revisionId =
-      String(insertRows[0].id);
+      String(
+        insertRows[0].id,
+      );
 
     console.log(
       `REVISION INSERTED: ${revisionId}`,
     );
 
-    const publishRows: JsonObject[] = await sql`
-      UPDATE public.forecast_revisions
+    const publishRows:
+      JsonObject[] =
+      await sql`
+        UPDATE public.forecast_revisions
 
-      SET published_at =
-        clock_timestamp()
+        SET published_at =
+          clock_timestamp()
 
-      WHERE id =
-        ${revisionId}::uuid
+        WHERE id =
+          ${revisionId}::uuid
 
-        AND published_at
-          IS NULL
+          AND published_at
+            IS NULL
 
-      RETURNING
-        id,
-        published_at
-    `;
+        RETURNING
+          id,
+          published_at
+      `;
 
     assert.equal(
       publishRows.length,
@@ -2230,7 +2718,8 @@ async function main() {
       "Revision publication failed.",
     );
 
-    published += 1;
+    published +=
+      1;
 
     console.log(
       `REVISION PUBLISHED: ${iso(
@@ -2240,48 +2729,58 @@ async function main() {
   }
 
   console.log("");
+
   console.log(
     "========================================",
   );
+
   console.log(
     "PRE-MATCH MONITOR V0.3 SUMMARY",
   );
+
   console.log(
     "========================================",
   );
+
   console.log(
     `Authoritative fixtures available: ${rows.length}`,
   );
+
   console.log(
     `Fixtures scanned: ${candidates.length}`,
   );
+
   console.log(
     `GPT research calls: ${gptCalls}`,
   );
+
   console.log(
     `Material revisions: ${materialRevisions}`,
   );
+
   console.log(
     `Suppressed updates: ${suppressed}`,
   );
+
   console.log(
     `Revisions inserted: ${inserted}`,
   );
+
   console.log(
     `Revisions published: ${published}`,
   );
-  console.log(
-    `Provider-deferred fixtures: ${providerDeferred}`,
-  );
+
   console.log(
     `GPT research failures: ${researchFailed}`,
   );
-  console.log(`Skipped: ${skipped}`);
+
   console.log(
-    `API-Football quota circuit breaker: ${providerQuotaExhausted ? "ACTIVE" : "NOT TRIGGERED"}`,
+    `Skipped: ${skipped}`,
   );
 
-  if (!persist) {
+  if (
+    !persist
+  ) {
     console.log(
       "READ ONLY COMPLETE: no revisions were written.",
     );
@@ -2292,12 +2791,19 @@ async function main() {
   }
 }
 
-main().catch((error: unknown) => {
-  console.error("");
-  console.error(
-    error instanceof Error
-      ? `Authoritative pre-match monitor failed: ${error.message}`
-      : "Authoritative pre-match monitor failed.",
-  );
-  process.exitCode = 1;
-});
+main().catch(
+  (
+    error: unknown,
+  ) => {
+    console.error("");
+
+    console.error(
+      error instanceof Error
+        ? `Authoritative pre-match monitor failed: ${error.message}`
+        : "Authoritative pre-match monitor failed.",
+    );
+
+    process.exitCode =
+      1;
+  },
+);
