@@ -316,7 +316,7 @@ function TeamCrest({
     return (
       <div
         aria-hidden="true"
-        className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-700 bg-slate-950 text-sm font-black text-slate-500"
+        className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-slate-950/80 text-base font-black text-slate-400 shadow-lg shadow-black/20"
       >
         {name.slice(0, 1).toUpperCase()}
       </div>
@@ -324,13 +324,13 @@ function TeamCrest({
   }
 
   return (
-    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-800 bg-white/95 p-1.5">
+    <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/95 p-2 shadow-lg shadow-black/20">
       <Image
         src={logoUrl}
         alt={`${name} crest`}
-        width={48}
-        height={48}
-        sizes="48px"
+        width={56}
+        height={56}
+        sizes="56px"
         className="h-full w-full object-contain"
       />
     </div>
@@ -592,7 +592,7 @@ export default async function TodayPredictions({
 
     return (
       <section className="rounded-3xl border border-slate-800 bg-slate-900 p-7">
-        <h2 className="text-lg font-black">
+        <h2 className="max-w-[11rem] text-base font-black leading-tight text-white sm:text-lg">
           Prediction data temporarily unavailable
         </h2>
 
@@ -638,24 +638,24 @@ export default async function TodayPredictions({
     );
 
   return (
-    <section>
-      <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+    <section className="relative">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-5 border-b border-white/10 pb-6">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-400">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-400">
             DictazIQ Predictions
           </p>
 
-          <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
+          <h1 className="mt-2 max-w-3xl text-3xl font-black tracking-tight text-white sm:text-4xl">
             Today&apos;s Football Intelligence
           </h1>
 
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">
             Published pre-match forecasts from the DictazIQ
             production and independent AI analysis pipelines.
           </p>
         </div>
 
-        <div className="rounded-full border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-400">
+        <div className="rounded-full border border-blue-500/15 bg-blue-500/[0.07] px-4 py-2 text-xs font-black uppercase tracking-wide text-blue-200">
           {hasActiveFilter
             ? `${filteredMatches.length} shown · ${matches.length} published`
             : `${matches.length} published`}
@@ -664,7 +664,7 @@ export default async function TodayPredictions({
 
       {filteredMatches.length ===
       0 ? (
-        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8">
+        <div className="rounded-3xl border border-dashed border-white/10 bg-slate-900/60 p-8 text-center">
           <h2 className="font-bold">
             No published forecasts today
           </h2>
@@ -675,7 +675,7 @@ export default async function TodayPredictions({
           </p>
         </div>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
           {filteredMatches.map(
             (
               row,
@@ -876,13 +876,13 @@ export default async function TodayPredictions({
                   }
                   href={`/football/matches/${slug}`}
                   aria-label={`View ${homeName} vs ${awayName} match intelligence`}
-                  className="group block rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className="group block rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                 >
-                  <article className="h-full overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 transition duration-200 group-hover:-translate-y-0.5 group-hover:border-blue-500/50">
-                    <div className="border-b border-slate-800 p-5">
+                  <article className="h-full overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-slate-900 to-slate-950/95 shadow-xl shadow-black/10 transition duration-200 group-hover:-translate-y-1 group-hover:border-blue-500/50 group-hover:shadow-2xl group-hover:shadow-blue-950/20">
+                    <div className="border-b border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent p-5 sm:p-6">
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <p className="text-xs font-black uppercase tracking-wider text-blue-400">
+                          <p className="text-xs font-black uppercase tracking-wider text-indigo-300">
                             {
                               competition
                             }
@@ -926,7 +926,7 @@ export default async function TodayPredictions({
                         </div>
                       </div>
 
-                      <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                      <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-4 rounded-2xl border border-white/5 bg-slate-950/45 p-4 backdrop-blur-sm">
                         <div className="flex min-w-0 flex-col items-end gap-2 text-right">
                           <TeamCrest
                             logoUrl={
@@ -937,7 +937,7 @@ export default async function TodayPredictions({
                             }
                           />
 
-                          <p className="text-lg font-black">
+                          <p className="max-w-[11rem] text-base font-black leading-tight text-white sm:text-lg">
                             {
                               homeName
                             }
@@ -975,7 +975,7 @@ export default async function TodayPredictions({
                             }
                           />
 
-                          <p className="text-lg font-black">
+                          <p className="max-w-[11rem] text-base font-black leading-tight text-white sm:text-lg">
                             {
                               awayName
                             }
@@ -983,7 +983,7 @@ export default async function TodayPredictions({
                         </div>
                       </div>
 
-                      <div className="mt-4 text-center text-sm text-slate-400">
+                      <div className="mx-auto mt-4 w-fit rounded-full border border-white/5 bg-slate-950/55 px-3 py-1.5 text-center text-xs font-bold text-slate-300">
                         {kickoffAt ? (
                           <LocalTime
                             value={
@@ -996,15 +996,21 @@ export default async function TodayPredictions({
                       </div>
                     </div>
 
-                    <div className="space-y-5 p-5">
+                    <div className="space-y-5 p-5 sm:p-6">
                       {hasBaseline && (
                         <>
-                          <div>
-                            <p className="text-xs uppercase tracking-wider text-slate-500">
-                              DictazIQ Forecast
-                            </p>
+                          <div className="rounded-2xl border border-emerald-500/15 bg-emerald-950/15 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-xs font-black uppercase tracking-wider text-emerald-300/80">
+                                DictazIQ Forecast
+                              </p>
 
-                            <p className="mt-2 text-xl font-black text-emerald-400">
+                              <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-300">
+                                {routeLabel(route)}
+                              </span>
+                            </div>
+
+                            <p className="mt-3 text-2xl font-black tracking-tight text-emerald-300">
                               {
                                 forecastLabel(
                                   activeForecast,
@@ -1016,7 +1022,7 @@ export default async function TodayPredictions({
                           </div>
 
                           <div className="grid grid-cols-3 gap-3">
-                            <div className="rounded-xl bg-slate-950 p-3">
+                            <div className="rounded-xl border border-white/5 bg-slate-950/65 p-3">
                               <p className="text-[10px] uppercase text-slate-500">
                                 Confidence
                               </p>
@@ -1030,7 +1036,7 @@ export default async function TodayPredictions({
                               </p>
                             </div>
 
-                            <div className="rounded-xl bg-slate-950 p-3">
+                            <div className="rounded-xl border border-white/5 bg-slate-950/65 p-3">
                               <p className="text-[10px] uppercase text-slate-500">
                                 Evidence
                               </p>
@@ -1043,7 +1049,7 @@ export default async function TodayPredictions({
                               </p>
                             </div>
 
-                            <div className="rounded-xl bg-slate-950 p-3">
+                            <div className="rounded-xl border border-white/5 bg-slate-950/65 p-3">
                               <p className="text-[10px] uppercase text-slate-500">
                                 Rating Gap
                               </p>
@@ -1066,7 +1072,7 @@ export default async function TodayPredictions({
                             btts) && (
                             <div className="flex flex-wrap gap-2">
                               {goals && (
-                                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+                                <span className="rounded-full border border-emerald-500/15 bg-emerald-500/[0.07] px-3 py-2 text-xs font-bold text-emerald-200">
                                   {
                                     goals
                                   }
@@ -1074,7 +1080,7 @@ export default async function TodayPredictions({
                               )}
 
                               {btts && (
-                                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+                                <span className="rounded-full border border-emerald-500/15 bg-emerald-500/[0.07] px-3 py-2 text-xs font-bold text-emerald-200">
                                   {
                                     btts
                                   }
@@ -1086,14 +1092,14 @@ export default async function TodayPredictions({
                       )}
 
                       {deepseekForecast && (
-                        <div className="rounded-2xl border border-blue-900/60 bg-blue-950/30 p-4">
+                        <div className="rounded-2xl border border-indigo-500/20 bg-indigo-950/20 p-4">
                           <div className="flex items-center justify-between gap-3">
-                            <p className="text-xs font-black uppercase tracking-wider text-blue-400">
+                            <p className="text-xs font-black uppercase tracking-wider text-indigo-300">
                               DeepSeek AI Forecast
                             </p>
 
                             {deepseekGrade && (
-                              <span className="rounded-full border border-blue-900 px-2 py-1 text-[10px] font-black text-blue-300">
+                              <span className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-black text-indigo-200">
                                 Evidence {
                                   deepseekGrade
                                 }
@@ -1101,7 +1107,7 @@ export default async function TodayPredictions({
                             )}
                           </div>
 
-                          <p className="mt-3 text-xl font-black text-blue-300">
+                          <p className="mt-3 text-xl font-black tracking-tight text-indigo-200">
                             {
                               forecastLabel(
                                 deepseekForecast,
@@ -1113,7 +1119,7 @@ export default async function TodayPredictions({
 
                           <div className="mt-3 flex flex-wrap gap-2">
                             {deepseekConfidence && (
-                              <span className="rounded-full bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+                              <span className="rounded-full border border-white/5 bg-slate-950/65 px-3 py-2 text-xs font-bold text-slate-300">
                                 Confidence:{" "}
                                 {
                                   titleCase(
@@ -1124,7 +1130,7 @@ export default async function TodayPredictions({
                             )}
 
                             {deepseekGoals && (
-                              <span className="rounded-full bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+                              <span className="rounded-full border border-white/5 bg-slate-950/65 px-3 py-2 text-xs font-bold text-slate-300">
                                 {
                                   deepseekGoals
                                 }
@@ -1132,7 +1138,7 @@ export default async function TodayPredictions({
                             )}
 
                             {deepseekBtts && (
-                              <span className="rounded-full bg-slate-950 px-3 py-2 text-xs font-bold text-slate-300">
+                              <span className="rounded-full border border-white/5 bg-slate-950/65 px-3 py-2 text-xs font-bold text-slate-300">
                                 {
                                   deepseekBtts
                                 }
@@ -1147,7 +1153,7 @@ export default async function TodayPredictions({
                         </div>
                       )}
 
-                      <div className="flex items-end justify-between gap-4 border-t border-slate-800 pt-4">
+                      <div className="flex items-end justify-between gap-4 border-t border-white/10 pt-4">
                         <p className="text-xs text-slate-500">
                           {hasBaseline ? (
                             <>

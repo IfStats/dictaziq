@@ -633,12 +633,12 @@ function StatCard({
   value: number;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-      <div className="text-2xl font-black tabular-nums">
+    <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-xl shadow-black/10 backdrop-blur-md">
+      <div className="text-2xl font-black tabular-nums text-white">
         {value}
       </div>
 
-      <div className="mt-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+      <div className="mt-1 text-xs font-bold uppercase tracking-wider text-slate-300/80">
         {label}
       </div>
     </div>
@@ -724,12 +724,12 @@ export default async function HomeCommandCenter() {
               Prediction Intelligence + Match Tracking
             </p>
 
-            <h1 className="mt-4 max-w-4xl text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl">
+            <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.55)] sm:text-5xl lg:text-6xl">
               One football command center for forecasts,
               live matches and accountability.
             </h1>
 
-            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-200/85 drop-shadow-sm sm:text-base">
               DictazIQ combines published pre-match intelligence
               with the current match state while preserving the
               original forecast exactly as it existed before kickoff.
