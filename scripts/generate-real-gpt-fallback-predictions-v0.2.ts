@@ -1,14 +1,8 @@
 import "./load-env";
 
 import assert from "node:assert/strict";
-
-import {
-  readFileSync,
-} from "node:fs";
-
-import {
-  resolve,
-} from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import {
   neon,
@@ -33,11 +27,6 @@ import {
   DEFAULT_GPT_RESEARCH_MODEL_V02,
   generateOpenAiResearchPredictionV02,
 } from "../src/lib/ai/openai-research-prediction-v0.2";
-
-import {
-  fetchFixtureInjuries,
-  fetchFixtureLineups,
-} from "../src/providers/api-football/client";
 
 const API_SOURCE =
   "api-football";
@@ -64,29 +53,20 @@ type JsonObject =
   >;
 
 function requestedDate():
-  string {
+string {
   const value =
     process.argv
       .slice(2)
       .find(
-        (
-          argument,
-        ) =>
-          !argument.startsWith(
-            "--",
-          ),
+        (argument) =>
+          !argument.startsWith("--"),
       ) ??
     new Date()
       .toISOString()
-      .slice(
-        0,
-        10,
-      );
+      .slice(0, 10);
 
   if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(
-      value,
-    )
+    !/^\d{4}-\d{2}-\d{2}$/.test(value)
   ) {
     throw new Error(
       "Date must use YYYY-MM-DD.",
@@ -97,42 +77,35 @@ function requestedDate():
 }
 
 function persistRequested():
-  boolean {
+boolean {
   return process.argv.includes(
     "--persist",
   );
 }
 
 function publishRequested():
-  boolean {
+boolean {
   return process.argv.includes(
     "--publish",
   );
 }
 
 function includeMathCovered():
-  boolean {
+boolean {
   return process.argv.includes(
     "--include-math-covered",
   );
 }
 
 function requestedLimit():
-  number |
-  null {
+number | null {
   const argument =
     process.argv.find(
-      (
-        value,
-      ) =>
-        value.startsWith(
-          "--limit=",
-        ),
+      (value) =>
+        value.startsWith("--limit="),
     );
 
-  if (
-    !argument
-  ) {
+  if (!argument) {
     return null;
   }
 
@@ -144,11 +117,8 @@ function requestedLimit():
     );
 
   if (
-    !Number.isInteger(
-      value,
-    ) ||
-    value <=
-      0
+    !Number.isInteger(value) ||
+    value <= 0
   ) {
     throw new Error(
       "--limit must be a positive integer.",
@@ -159,44 +129,30 @@ function requestedLimit():
 }
 
 function isRecord(
-  value:
-    unknown,
+  value: unknown,
 ): value is JsonObject {
   return (
-    typeof value ===
-      "object" &&
-    value !==
-      null &&
-    !Array.isArray(
-      value,
-    )
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
   );
 }
 
 function toRecord(
-  value:
-    unknown,
-):
-  JsonObject |
-  null {
-  return isRecord(
-    value,
-  )
+  value: unknown,
+): JsonObject | null {
+  return isRecord(value)
     ? value
     : null;
 }
 
 function text(
-  value:
-    unknown,
-  label:
-    string,
+  value: unknown,
+  label: string,
 ): string {
   assert.ok(
-    typeof value ===
-      "string" &&
-    value.trim().length >
-      0,
+    typeof value === "string" &&
+      value.trim().length > 0,
     `${label} must be a non-empty string.`,
   );
 
@@ -204,73 +160,28 @@ function text(
 }
 
 function timestamp(
-  value:
-    unknown,
-  label:
-    string,
+  value: unknown,
+  label: string,
 ): Date {
   const date =
     value instanceof Date
-      ? new Date(
-          value.getTime(),
-        )
-      : new Date(
-          String(
-            value,
-          ),
-        );
+      ? new Date(value.getTime())
+      : new Date(String(value));
 
   assert.ok(
-    Number.isFinite(
-      date.getTime(),
-    ),
+    Number.isFinite(date.getTime()),
     `${label} is invalid.`,
   );
 
   return date;
 }
 
-function nullablePositiveInteger(
-  value:
-    unknown,
-):
-  number |
-  null {
-  if (
-    value === null ||
-    value === undefined
-  ) {
-    return null;
-  }
-
-  const result =
-    Number(
-      value,
-    );
-
-  return (
-    Number.isInteger(
-      result,
-    ) &&
-    result >
-      0
-  )
-    ? result
-    : null;
-}
-
 function finiteNumber(
-  value:
-    unknown,
-):
-  number |
-  null {
+  value: unknown,
+): number | null {
   if (
-    typeof value !==
-      "number" ||
-    !Number.isFinite(
-      value,
-    )
+    typeof value !== "number" ||
+    !Number.isFinite(value)
   ) {
     return null;
   }
@@ -279,13 +190,10 @@ function finiteNumber(
 }
 
 function sourceFile(
-  path:
-    string,
+  path: string,
 ): string {
   return readFileSync(
-    resolve(
-      path,
-    ),
+    resolve(path),
     "utf8",
   ).replace(
     /\r\n/g,
@@ -294,7 +202,7 @@ function sourceFile(
 }
 
 function configuredModel():
-  string {
+string {
   return (
     process.env
       .OPENAI_LLM_MODEL
@@ -304,7 +212,7 @@ function configuredModel():
 }
 
 function modelCodeSha256():
-  string {
+string {
   return canonicalSha256({
     contract:
       sourceFile(
@@ -374,8 +282,7 @@ function modelConfiguration() {
 }
 
 async function databaseNow(
-  sql:
-    SqlClient,
+  sql: SqlClient,
 ): Promise<string> {
   const rows =
     await sql`
@@ -397,20 +304,11 @@ async function databaseNow(
 }
 
 async function hasCommonRatingPair(
-  sql:
-    SqlClient,
-
-  homeTeamId:
-    string,
-
-  awayTeamId:
-    string,
-
-  availableAt:
-    string,
-
-  kickoffAt:
-    string,
+  sql: SqlClient,
+  homeTeamId: string,
+  awayTeamId: string,
+  availableAt: string,
+  kickoffAt: string,
 ): Promise<boolean> {
   const rows =
     await sql`
@@ -468,25 +366,16 @@ async function hasCommonRatingPair(
     1,
   );
 
-  return rows[0]
-    .has_pair ===
-    true;
+  return rows[0].has_pair === true;
 }
 
 function normalizeSide(
-  value:
-    unknown,
-):
-  "home" |
-  "away" |
-  "neutral" {
+  value: unknown,
+): "home" | "away" | "neutral" {
   if (
-    value ===
-      "home" ||
-    value ===
-      "away" ||
-    value ===
-      "neutral"
+    value === "home" ||
+    value === "away" ||
+    value === "neutral"
   ) {
     return value;
   }
@@ -495,20 +384,11 @@ function normalizeSide(
 }
 
 async function storedContextFacts(
-  sql:
-    SqlClient,
-
-  fixtureId:
-    string,
-
-  cutoffAt:
-    string,
-
-  kickoffAt:
-    string,
-): Promise<
-  GptResearchFactV02[]
-> {
+  sql: SqlClient,
+  fixtureId: string,
+  cutoffAt: string,
+  kickoffAt: string,
+): Promise<GptResearchFactV02[]> {
   const rows =
     await sql`
       SELECT
@@ -540,9 +420,7 @@ async function storedContextFacts(
     `;
 
   return rows.map(
-    (
-      row,
-    ) => ({
+    (row) => ({
       kind:
         text(
           row.kind,
@@ -576,34 +454,20 @@ async function storedContextFacts(
 }
 
 function scoringFact(
-  side:
-    "home" |
-    "away",
-
-  teamName:
-    string,
-
-  recent:
-    JsonObject,
-
-  source:
-    string,
-
-  observedAt:
-    string,
-):
-  GptResearchFactV02 |
-  null {
+  side: "home" | "away",
+  teamName: string,
+  recent: JsonObject,
+  source: string,
+  observedAt: string,
+): GptResearchFactV02 | null {
   const matches =
     finiteNumber(
       recent.matches,
     );
 
   if (
-    matches ===
-      null ||
-    matches <=
-      0
+    matches === null ||
+    matches <= 0
   ) {
     return null;
   }
@@ -645,8 +509,7 @@ function scoringFact(
   ];
 
   if (
-    metrics.goalsFor !==
-    null
+    metrics.goalsFor !== null
   ) {
     parts.push(
       `Goals scored: ${metrics.goalsFor}.`,
@@ -654,8 +517,7 @@ function scoringFact(
   }
 
   if (
-    metrics.goalsAgainst !==
-    null
+    metrics.goalsAgainst !== null
   ) {
     parts.push(
       `Goals conceded: ${metrics.goalsAgainst}.`,
@@ -663,8 +525,7 @@ function scoringFact(
   }
 
   if (
-    metrics.scoredMatches !==
-    null
+    metrics.scoredMatches !== null
   ) {
     parts.push(
       `Scored in ${metrics.scoredMatches} matches.`,
@@ -672,8 +533,7 @@ function scoringFact(
   }
 
   if (
-    metrics.concededMatches !==
-    null
+    metrics.concededMatches !== null
   ) {
     parts.push(
       `Conceded in ${metrics.concededMatches} matches.`,
@@ -681,8 +541,7 @@ function scoringFact(
   }
 
   if (
-    metrics.bttsMatches !==
-    null
+    metrics.bttsMatches !== null
   ) {
     parts.push(
       `BTTS occurred in ${metrics.bttsMatches}.`,
@@ -690,8 +549,7 @@ function scoringFact(
   }
 
   if (
-    metrics.over25Matches !==
-    null
+    metrics.over25Matches !== null
   ) {
     parts.push(
       `Over 2.5 occurred in ${metrics.over25Matches}.`,
@@ -705,9 +563,7 @@ function scoringFact(
     side,
 
     description:
-      parts.join(
-        " ",
-      ),
+      parts.join(" "),
 
     source,
 
@@ -716,26 +572,13 @@ function scoringFact(
 }
 
 async function storedMarketFacts(
-  sql:
-    SqlClient,
-
-  fixtureId:
-    string,
-
-  homeTeam:
-    string,
-
-  awayTeam:
-    string,
-
-  cutoffAt:
-    string,
-
-  kickoffAt:
-    string,
-): Promise<
-  GptResearchFactV02[]
-> {
+  sql: SqlClient,
+  fixtureId: string,
+  homeTeam: string,
+  awayTeam: string,
+  cutoffAt: string,
+  kickoffAt: string,
+): Promise<GptResearchFactV02[]> {
   const rows =
     await sql`
       SELECT
@@ -768,8 +611,7 @@ async function storedMarketFacts(
     `;
 
   if (
-    rows.length ===
-    0
+    rows.length === 0
   ) {
     return [];
   }
@@ -779,9 +621,7 @@ async function storedMarketFacts(
       rows[0].evidence,
     );
 
-  if (
-    !evidence
-  ) {
+  if (!evidence) {
     return [];
   }
 
@@ -820,9 +660,7 @@ async function storedMarketFacts(
   const facts:
     GptResearchFactV02[] = [];
 
-  if (
-    homeRecent
-  ) {
+  if (homeRecent) {
     const fact =
       scoringFact(
         "home",
@@ -832,18 +670,12 @@ async function storedMarketFacts(
         observedAt,
       );
 
-    if (
-      fact
-    ) {
-      facts.push(
-        fact,
-      );
+    if (fact) {
+      facts.push(fact);
     }
   }
 
-  if (
-    awayRecent
-  ) {
+  if (awayRecent) {
     const fact =
       scoringFact(
         "away",
@@ -853,299 +685,17 @@ async function storedMarketFacts(
         observedAt,
       );
 
-    if (
-      fact
-    ) {
-      facts.push(
-        fact,
-      );
+    if (fact) {
+      facts.push(fact);
     }
-  }
-
-  return facts;
-}
-
-function injuryFacts(
-  injuries:
-    Awaited<
-      ReturnType<
-        typeof fetchFixtureInjuries
-      >
-    >,
-
-  homeApiTeamId:
-    number,
-
-  awayApiTeamId:
-    number,
-
-  homeTeam:
-    string,
-
-  awayTeam:
-    string,
-
-  observedAt:
-    string,
-):
-  GptResearchFactV02[] {
-  const groups =
-    new Map<
-      number,
-      typeof injuries
-    >();
-
-  for (
-    const injury
-    of injuries
-  ) {
-    if (
-      injury.team.id !==
-        homeApiTeamId &&
-      injury.team.id !==
-        awayApiTeamId
-    ) {
-      continue;
-    }
-
-    const existing =
-      groups.get(
-        injury.team.id,
-      ) ??
-      [];
-
-    existing.push(
-      injury,
-    );
-
-    groups.set(
-      injury.team.id,
-      existing,
-    );
-  }
-
-  const facts:
-    GptResearchFactV02[] = [];
-
-  for (
-    const [
-      teamId,
-      teamInjuries,
-    ]
-    of groups
-  ) {
-    const home =
-      teamId ===
-      homeApiTeamId;
-
-    const teamName =
-      home
-        ? homeTeam
-        : awayTeam;
-
-    const unique =
-      new Map<
-        string,
-        typeof teamInjuries[number]
-      >();
-
-    for (
-      const injury
-      of teamInjuries
-    ) {
-      const identity =
-        injury.player.id !==
-        null
-          ? `id:${injury.player.id}`
-          : `name:${injury.player.name.toLowerCase()}`;
-
-      if (
-        !unique.has(
-          identity,
-        )
-      ) {
-        unique.set(
-          identity,
-          injury,
-        );
-      }
-    }
-
-    const players =
-      [...unique.values()];
-
-    const playerText =
-      players
-        .slice(
-          0,
-          15,
-        )
-        .map(
-          (
-            injury,
-          ) => {
-            const detail =
-              [
-                injury.type,
-                injury.reason,
-              ]
-                .filter(
-                  (
-                    item,
-                  ) =>
-                    typeof item ===
-                      "string" &&
-                    item.trim(),
-                )
-                .join(
-                  ": ",
-                );
-
-            return detail
-              ? `${injury.player.name} (${detail})`
-              : injury.player.name;
-          },
-        )
-        .join(
-          ", ",
-        );
-
-    facts.push({
-      kind:
-        "squad_availability",
-
-      side:
-        home
-          ? "home"
-          : "away",
-
-      description:
-        [
-          `${teamName}: API-Football reports ${players.length} unavailable player(s).`,
-          playerText
-            ? `Reported players: ${playerText}.`
-            : "",
-          "Absence count alone must not be treated as a directional vote.",
-        ]
-          .filter(
-            Boolean,
-          )
-          .join(
-            " ",
-          ),
-
-      source:
-        API_SOURCE,
-
-      observedAt,
-    });
-  }
-
-  return facts;
-}
-
-function lineupFacts(
-  lineups:
-    Awaited<
-      ReturnType<
-        typeof fetchFixtureLineups
-      >
-    >,
-
-  homeApiTeamId:
-    number,
-
-  awayApiTeamId:
-    number,
-
-  homeTeam:
-    string,
-
-  awayTeam:
-    string,
-
-  observedAt:
-    string,
-):
-  GptResearchFactV02[] {
-  const facts:
-    GptResearchFactV02[] = [];
-
-  for (
-    const lineup
-    of lineups
-  ) {
-    if (
-      lineup.team.id !==
-        homeApiTeamId &&
-      lineup.team.id !==
-        awayApiTeamId
-    ) {
-      continue;
-    }
-
-    if (
-      lineup.startXI.length ===
-      0
-    ) {
-      continue;
-    }
-
-    const home =
-      lineup.team.id ===
-      homeApiTeamId;
-
-    const teamName =
-      home
-        ? homeTeam
-        : awayTeam;
-
-    const starters =
-      lineup.startXI
-        .map(
-          (
-            player,
-          ) =>
-            player.position
-              ? `${player.name} (${player.position})`
-              : player.name,
-        )
-        .join(
-          ", ",
-        );
-
-    facts.push({
-      kind:
-        "confirmed_or_provider_lineup",
-
-      side:
-        home
-          ? "home"
-          : "away",
-
-      description: [
-        `API-Football returned a starting XI for ${teamName}.`,
-        `Formation: ${lineup.formation ?? "not supplied"}.`,
-        `Starting XI: ${starters}.`,
-      ].join(
-        " ",
-      ),
-
-      source:
-        API_SOURCE,
-
-      observedAt,
-    });
   }
 
   return facts;
 }
 
 function dedupeFacts(
-  facts:
-    GptResearchFactV02[],
-):
-  GptResearchFactV02[] {
+  facts: GptResearchFactV02[],
+): GptResearchFactV02[] {
   const unique =
     new Map<
       string,
@@ -1162,15 +712,9 @@ function dedupeFacts(
         fact.side,
         fact.source,
         fact.description,
-      ].join(
-        "|",
-      );
+      ].join("|");
 
-    if (
-      !unique.has(
-        key,
-      )
-    ) {
+    if (!unique.has(key)) {
       unique.set(
         key,
         fact,
@@ -1180,10 +724,7 @@ function dedupeFacts(
 
   return [
     ...unique.values(),
-  ].slice(
-    0,
-    50,
-  );
+  ].slice(0, 50);
 }
 
 async function main() {
@@ -1235,9 +776,7 @@ async function main() {
     );
 
   const startedAt =
-    await databaseNow(
-      sql,
-    );
+    await databaseNow(sql);
 
   const modelSha =
     modelCodeSha256();
@@ -1285,6 +824,10 @@ async function main() {
     `Limit: ${limit ?? "NONE"}`,
   );
 
+  console.log(
+    "Provider context: DATABASE ONLY",
+  );
+
   const fixtures =
     await sql`
       SELECT
@@ -1310,13 +853,7 @@ async function main() {
           AS away_team_id,
 
         away_team.name
-          AS away_team_name,
-
-        home_api.source_team_id
-          AS home_api_team_id,
-
-        away_api.source_team_id
-          AS away_api_team_id
+          AS away_team_name
 
       FROM public.fixtures
         AS fixture
@@ -1340,28 +877,6 @@ async function main() {
         AS away_team
         ON away_team.id =
           fixture.away_team_id
-
-      LEFT JOIN public.team_source_mappings
-        AS home_api
-        ON home_api.team_id =
-          fixture.home_team_id
-
-        AND home_api.source =
-          ${API_SOURCE}
-
-        AND home_api.is_verified =
-          true
-
-      LEFT JOIN public.team_source_mappings
-        AS away_api
-        ON away_api.team_id =
-          fixture.away_team_id
-
-        AND away_api.source =
-          ${API_SOURCE}
-
-        AND away_api.is_verified =
-          true
 
       WHERE fixture.provider =
         ${API_SOURCE}
@@ -1391,8 +906,7 @@ async function main() {
   );
 
   if (
-    fixtures.length ===
-    0
+    fixtures.length === 0
   ) {
     return;
   }
@@ -1400,9 +914,7 @@ async function main() {
   const sportIds =
     new Set(
       fixtures.map(
-        (
-          fixture,
-        ) =>
+        (fixture) =>
           String(
             fixture.sport_id,
           ),
@@ -1418,9 +930,7 @@ async function main() {
   const sportId =
     [...sportIds][0];
 
-  if (
-    persist
-  ) {
+  if (persist) {
     await sql`
       INSERT INTO public.model_versions (
         sport_id,
@@ -1462,9 +972,7 @@ async function main() {
       LIMIT 1
     `;
 
-  if (
-    persist
-  ) {
+  if (persist) {
     assert.equal(
       modelRows.length,
       1,
@@ -1473,8 +981,7 @@ async function main() {
   }
 
   if (
-    modelRows.length ===
-    1
+    modelRows.length === 1
   ) {
     assert.equal(
       String(
@@ -1503,44 +1010,27 @@ async function main() {
     );
   }
 
-  let candidates =
-    0;
-
-  let analysed =
-    0;
-
-  let inserted =
-    0;
-
-  let published =
-    0;
-
-  let existing =
-    0;
-
-  let mathCovered =
-    0;
-
-  let skipped =
-    0;
+  let candidates = 0;
+  let analysed = 0;
+  let inserted = 0;
+  let published = 0;
+  let existing = 0;
+  let mathCovered = 0;
+  let skipped = 0;
 
   for (
     const fixture
     of fixtures
   ) {
     if (
-      limit !==
-        null &&
-      analysed >=
-        limit
+      limit !== null &&
+      analysed >= limit
     ) {
       break;
     }
 
     const fixtureId =
-      String(
-        fixture.id,
-      );
+      String(fixture.id);
 
     const homeTeamId =
       String(
@@ -1571,8 +1061,7 @@ async function main() {
       );
 
     const country =
-      fixture.competition_country ===
-        null
+      fixture.competition_country === null
         ? null
         : String(
             fixture.competition_country,
@@ -1585,21 +1074,13 @@ async function main() {
       ).toISOString();
 
     const currentTime =
-      await databaseNow(
-        sql,
-      );
+      await databaseNow(sql);
 
     if (
-      Date.parse(
-        currentTime,
-      ) >=
-      Date.parse(
-        kickoffAt,
-      )
+      Date.parse(currentTime) >=
+      Date.parse(kickoffAt)
     ) {
-      skipped +=
-        1;
-
+      skipped += 1;
       continue;
     }
 
@@ -1629,15 +1110,10 @@ async function main() {
       `Common mathematical rating pair: ${covered ? "YES" : "NO"}`,
     );
 
-    if (
-      covered
-    ) {
-      mathCovered +=
-        1;
+    if (covered) {
+      mathCovered += 1;
 
-      if (
-        !includeCovered
-      ) {
+      if (!includeCovered) {
         console.log(
           "ROUTE: mathematical engine — GPT fallback not required.",
         );
@@ -1650,12 +1126,10 @@ async function main() {
       );
     }
 
-    candidates +=
-      1;
+    candidates += 1;
 
     /*
      * Production idempotency:
-     *
      * once a GPT fallback baseline exists for this
      * fixture/model, subsequent information belongs
      * in forecast_revisions rather than predictions.
@@ -1691,11 +1165,9 @@ async function main() {
       `;
 
     if (
-      existingRows.length ===
-      1
+      existingRows.length === 1
     ) {
-      existing +=
-        1;
+      existing += 1;
 
       console.log(
         `GPT BASELINE EXISTING: ${existingRows[0].id}`,
@@ -1704,8 +1176,7 @@ async function main() {
       if (
         persist &&
         publish &&
-        existingRows[0].published_at ===
-          null
+        existingRows[0].published_at === null
       ) {
         const publication =
           await sql`
@@ -1727,11 +1198,9 @@ async function main() {
           `;
 
         if (
-          publication.length ===
-          1
+          publication.length === 1
         ) {
-          published +=
-            1;
+          published += 1;
 
           console.log(
             `PUBLISHED: ${timestamp(
@@ -1767,165 +1236,22 @@ async function main() {
         kickoffAt,
       ),
     );
-
-    const providerFixtureId =
-      nullablePositiveInteger(
-        fixture.provider_id,
-      );
-
-    const homeApiTeamId =
-      nullablePositiveInteger(
-        fixture.home_api_team_id,
-      );
-
-    const awayApiTeamId =
-      nullablePositiveInteger(
-        fixture.away_api_team_id,
-      );
-
-    let injuries:
-      Awaited<
-        ReturnType<
-          typeof fetchFixtureInjuries
-        >
-      > = [];
-
-    let lineups:
-      Awaited<
-        ReturnType<
-          typeof fetchFixtureLineups
-        >
-      > = [];
-
-    /*
-     * Structured API-Football context is optional.
-     *
-     * GPT web research remains available even when
-     * mappings or a provider endpoint are missing.
-     */
-    if (
-      providerFixtureId !==
-        null &&
-      homeApiTeamId !==
-        null &&
-      awayApiTeamId !==
-        null
-    ) {
-      const results =
-        await Promise.allSettled([
-          fetchFixtureInjuries(
-            providerFixtureId,
-          ),
-
-          fetchFixtureLineups(
-            providerFixtureId,
-          ),
-        ]);
-
-      if (
-        results[0].status ===
-        "fulfilled"
-      ) {
-        injuries =
-          results[0].value;
-      } else {
-        console.log(
-          "API-Football injuries unavailable.",
-        );
-      }
-
-      if (
-        results[1].status ===
-        "fulfilled"
-      ) {
-        lineups =
-          results[1].value;
-      } else {
-        console.log(
-          "API-Football lineups unavailable.",
-        );
-      }
-
-      const evidenceObservedAt =
-        await databaseNow(
-          sql,
-        );
-
-      if (
-        Date.parse(
-          evidenceObservedAt,
-        ) >=
-        Date.parse(
-          kickoffAt,
-        )
-      ) {
-        console.log(
-          "SKIP: structured evidence collection crossed kickoff.",
-        );
-
-        skipped +=
-          1;
-
-        continue;
-      }
-
-      facts.push(
-        ...injuryFacts(
-          injuries,
-          homeApiTeamId,
-          awayApiTeamId,
-          homeTeam,
-          awayTeam,
-          evidenceObservedAt,
-        ),
-      );
-
-      facts.push(
-        ...lineupFacts(
-          lineups,
-          homeApiTeamId,
-          awayApiTeamId,
-          homeTeam,
-          awayTeam,
-          evidenceObservedAt,
-        ),
-      );
-    }
-
     const researchStartedAt =
-      await databaseNow(
-        sql,
-      );
+      await databaseNow(sql);
 
     if (
-      Date.parse(
-        researchStartedAt,
-      ) >=
-      Date.parse(
-        kickoffAt,
-      )
+      Date.parse(researchStartedAt) >=
+      Date.parse(kickoffAt)
     ) {
-      skipped +=
-        1;
-
+      skipped += 1;
       continue;
     }
 
     const finalFacts =
-      dedupeFacts(
-        facts,
-      );
+      dedupeFacts(facts);
 
     console.log(
       `Structured facts: ${finalFacts.length}`,
-    );
-
-    console.log(
-      `API injuries: ${injuries.length}`,
-    );
-
-    console.log(
-      `API lineup teams: ${lineups.length}`,
     );
 
     console.log(
@@ -1939,15 +1265,10 @@ async function main() {
 
         fixture: {
           fixtureId,
-
           homeTeam,
-
           awayTeam,
-
           competition,
-
           country,
-
           kickoffAt,
         },
 
@@ -1968,36 +1289,26 @@ async function main() {
       });
 
     const researchCompletedAt =
-      await databaseNow(
-        sql,
-      );
+      await databaseNow(sql);
 
     /*
      * Absolute anti-leakage gate.
-     *
      * A GPT response completing at/after kickoff
      * cannot become a DictazIQ pre-match forecast.
      */
     if (
-      Date.parse(
-        researchCompletedAt,
-      ) >=
-      Date.parse(
-        kickoffAt,
-      )
+      Date.parse(researchCompletedAt) >=
+      Date.parse(kickoffAt)
     ) {
       console.log(
         "DISCARD: GPT research completed at or after kickoff.",
       );
 
-      skipped +=
-        1;
-
+      skipped += 1;
       continue;
     }
 
-    analysed +=
-      1;
+    analysed += 1;
 
     console.log("");
     console.log(
@@ -2075,9 +1386,7 @@ async function main() {
         },
 
         competition,
-
         country,
-
         kickoffAt,
       },
 
@@ -2209,9 +1518,7 @@ async function main() {
       `OpenAI response: ${research.responseId}`,
     );
 
-    if (
-      !persist
-    ) {
+    if (!persist) {
       console.log(
         "READ ONLY: no prediction persisted.",
       );
@@ -2252,11 +1559,9 @@ async function main() {
       `;
 
     if (
-      concurrentCheck.length >
-      0
+      concurrentCheck.length > 0
     ) {
-      existing +=
-        1;
+      existing += 1;
 
       console.log(
         `GPT BASELINE ALREADY CREATED: ${concurrentCheck[0].id}`,
@@ -2318,8 +1623,7 @@ async function main() {
       "GPT fallback baseline insertion failed.",
     );
 
-    inserted +=
-      1;
+    inserted += 1;
 
     const predictionId =
       String(
@@ -2330,9 +1634,7 @@ async function main() {
       `GPT BASELINE INSERTED: ${predictionId}`,
     );
 
-    if (
-      publish
-    ) {
+    if (publish) {
       const publication =
         await sql`
           UPDATE public.predictions
@@ -2356,8 +1658,7 @@ async function main() {
         "GPT fallback publication failed.",
       );
 
-      published +=
-        1;
+      published += 1;
 
       console.log(
         `GPT BASELINE PUBLISHED: ${timestamp(
@@ -2413,9 +1714,7 @@ async function main() {
     `Skipped: ${skipped}`,
   );
 
-  if (
-    !persist
-  ) {
+  if (!persist) {
     console.log(
       "READ ONLY COMPLETE: database predictions were not modified.",
     );
@@ -2424,8 +1723,7 @@ async function main() {
 
 main().catch(
   (
-    error:
-      unknown,
+    error: unknown,
   ) => {
     console.error("");
 
@@ -2435,7 +1733,6 @@ main().catch(
         : "GPT fallback failed.",
     );
 
-    process.exitCode =
-      1;
+    process.exitCode = 1;
   },
 );
