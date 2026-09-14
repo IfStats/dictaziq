@@ -756,6 +756,9 @@ function buildStages(
 
       retryTransient:
         true,
+
+      degradableProvider:
+        "openai",  
     },
 
     {
@@ -805,6 +808,9 @@ function buildStages(
 
       args:
         monitorArgs,
+
+      degradableProvider:
+        "openai",  
     },
 
     {
