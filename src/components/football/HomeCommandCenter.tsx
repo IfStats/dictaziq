@@ -1,5 +1,6 @@
 import "server-only";
 
+import Image from "next/image";
 import Link from "next/link";
 import { neon } from "@neondatabase/serverless";
 
@@ -703,8 +704,21 @@ export default async function HomeCommandCenter() {
 
   return (
     <div className="space-y-12">
-      <section className="overflow-hidden rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-950/80 via-slate-900 to-slate-950 p-7 sm:p-10">
-        <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
+      <section className="relative min-h-[620px] overflow-hidden rounded-3xl border border-blue-500/20 bg-slate-950 sm:min-h-[560px]">
+        <Image
+          src="/hero-dictaziq.png"
+          alt="Football match under stadium floodlights"
+          fill
+          priority
+          sizes="(max-width: 768px) 100vw, 1280px"
+          className="object-cover object-[68%_center]"
+        />
+
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-slate-950/25" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-slate-950/20" />
+
+        <div className="relative z-10 flex min-h-[620px] items-end p-7 sm:min-h-[560px] sm:p-10">
+          <div className="grid w-full gap-8 lg:grid-cols-[1fr_360px] lg:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-400">
               Prediction Intelligence + Match Tracking
@@ -767,6 +781,7 @@ export default async function HomeCommandCenter() {
               }
             />
           </div>
+        </div>
         </div>
       </section>
 
