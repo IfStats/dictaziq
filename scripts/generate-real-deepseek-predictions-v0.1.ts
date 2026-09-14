@@ -34,11 +34,6 @@ import {
   generateDeepSeekResearchPredictionV01,
 } from "../src/lib/ai/deepseek-research-prediction-v0.1";
 
-import {
-  fetchFixtureInjuries,
-  fetchFixtureLineups,
-} from "../src/providers/api-football/client";
-
 const DEEPSEEK_RESEARCH_MODEL_VERSION_V01 =
   "dictaziq-deepseek-research-prediction-v0.1" as const;
 
@@ -225,35 +220,6 @@ function timestamp(
   );
 
   return date;
-}
-
-function nullablePositiveInteger(
-  value:
-    unknown,
-):
-  number |
-  null {
-  if (
-    value === null ||
-    value === undefined
-  ) {
-    return null;
-  }
-
-  const result =
-    Number(
-      value,
-    );
-
-  return (
-    Number.isInteger(
-      result,
-    ) &&
-    result >
-      0
-  )
-    ? result
-    : null;
 }
 
 function finiteNumber(
@@ -873,282 +839,6 @@ async function storedMarketFacts(
   return facts;
 }
 
-function injuryFacts(
-  injuries:
-    Awaited<
-      ReturnType<
-        typeof fetchFixtureInjuries
-      >
-    >,
-
-  homeApiTeamId:
-    number,
-
-  awayApiTeamId:
-    number,
-
-  homeTeam:
-    string,
-
-  awayTeam:
-    string,
-
-  observedAt:
-    string,
-):
-  GptResearchFactV02[] {
-  const groups =
-    new Map<
-      number,
-      typeof injuries
-    >();
-
-  for (
-    const injury
-    of injuries
-  ) {
-    if (
-      injury.team.id !==
-        homeApiTeamId &&
-      injury.team.id !==
-        awayApiTeamId
-    ) {
-      continue;
-    }
-
-    const existing =
-      groups.get(
-        injury.team.id,
-      ) ??
-      [];
-
-    existing.push(
-      injury,
-    );
-
-    groups.set(
-      injury.team.id,
-      existing,
-    );
-  }
-
-  const facts:
-    GptResearchFactV02[] = [];
-
-  for (
-    const [
-      teamId,
-      teamInjuries,
-    ]
-    of groups
-  ) {
-    const home =
-      teamId ===
-      homeApiTeamId;
-
-    const teamName =
-      home
-        ? homeTeam
-        : awayTeam;
-
-    const unique =
-      new Map<
-        string,
-        typeof teamInjuries[number]
-      >();
-
-    for (
-      const injury
-      of teamInjuries
-    ) {
-      const identity =
-        injury.player.id !==
-        null
-          ? `id:${injury.player.id}`
-          : `name:${injury.player.name.toLowerCase()}`;
-
-      if (
-        !unique.has(
-          identity,
-        )
-      ) {
-        unique.set(
-          identity,
-          injury,
-        );
-      }
-    }
-
-    const players =
-      [...unique.values()];
-
-    const playerText =
-      players
-        .slice(
-          0,
-          15,
-        )
-        .map(
-          (
-            injury,
-          ) => {
-            const detail =
-              [
-                injury.type,
-                injury.reason,
-              ]
-                .filter(
-                  (
-                    item,
-                  ) =>
-                    typeof item ===
-                      "string" &&
-                    item.trim(),
-                )
-                .join(
-                  ": ",
-                );
-
-            return detail
-              ? `${injury.player.name} (${detail})`
-              : injury.player.name;
-          },
-        )
-        .join(
-          ", ",
-        );
-
-    facts.push({
-      kind:
-        "squad_availability",
-
-      side:
-        home
-          ? "home"
-          : "away",
-
-      description:
-        [
-          `${teamName}: API-Football reports ${players.length} unavailable player(s).`,
-          playerText
-            ? `Reported players: ${playerText}.`
-            : "",
-          "Absence count alone must not be treated as a directional vote.",
-        ]
-          .filter(
-            Boolean,
-          )
-          .join(
-            " ",
-          ),
-
-      source:
-        API_SOURCE,
-
-      observedAt,
-    });
-  }
-
-  return facts;
-}
-
-function lineupFacts(
-  lineups:
-    Awaited<
-      ReturnType<
-        typeof fetchFixtureLineups
-      >
-    >,
-
-  homeApiTeamId:
-    number,
-
-  awayApiTeamId:
-    number,
-
-  homeTeam:
-    string,
-
-  awayTeam:
-    string,
-
-  observedAt:
-    string,
-):
-  GptResearchFactV02[] {
-  const facts:
-    GptResearchFactV02[] = [];
-
-  for (
-    const lineup
-    of lineups
-  ) {
-    if (
-      lineup.team.id !==
-        homeApiTeamId &&
-      lineup.team.id !==
-        awayApiTeamId
-    ) {
-      continue;
-    }
-
-    if (
-      lineup.startXI.length ===
-      0
-    ) {
-      continue;
-    }
-
-    const home =
-      lineup.team.id ===
-      homeApiTeamId;
-
-    const teamName =
-      home
-        ? homeTeam
-        : awayTeam;
-
-    const starters =
-      lineup.startXI
-        .map(
-          (
-            player,
-          ) =>
-            player.position
-              ? `${player.name} (${player.position})`
-              : player.name,
-        )
-        .join(
-          ", ",
-        );
-
-    facts.push({
-      kind:
-        "confirmed_or_provider_lineup",
-
-      side:
-        home
-          ? "home"
-          : "away",
-
-      description: [
-        `API-Football returned a starting XI for ${teamName}.`,
-        `Formation: ${lineup.formation ?? "not supplied"}.`,
-        `Starting XI: ${starters}.`,
-      ].join(
-        " ",
-      ),
-
-      source:
-        API_SOURCE,
-
-      observedAt,
-    });
-  }
-
-  return facts;
-}
-
 function dedupeFacts(
   facts:
     GptResearchFactV02[],
@@ -1515,7 +1205,7 @@ async function main() {
   let skipped =
     0;
 
- 
+
   for (
     const fixture
     of fixtures
@@ -1751,129 +1441,21 @@ async function main() {
       ),
     );
 
-    const providerFixtureId =
-      nullablePositiveInteger(
-        fixture.provider_id,
-      );
-
-    const homeApiTeamId =
-      nullablePositiveInteger(
-        fixture.home_api_team_id,
-      );
-
-    const awayApiTeamId =
-      nullablePositiveInteger(
-        fixture.away_api_team_id,
-      );
-
-    let injuries:
-      Awaited<
-        ReturnType<
-          typeof fetchFixtureInjuries
-        >
-      > = [];
-
-    let lineups:
-      Awaited<
-        ReturnType<
-          typeof fetchFixtureLineups
-        >
-      > = [];
-
     /*
-     * Structured API-Football context is optional.
+     * DB-ONLY PRODUCTION CONTRACT
      *
-     * DeepSeek analysis remains available even when
-     * mappings or a provider endpoint are missing.
+     * API-Football is an ingestion source only.
+     * DeepSeek forecast generation must never
+     * perform provider network requests.
+     *
+     * Squad availability, confirmed lineups and
+     * other provider evidence must already exist
+     * in context_evidence_snapshots before this
+     * runner executes.
      */
-    if (
-      providerFixtureId !==
-        null &&
-      homeApiTeamId !==
-        null &&
-      awayApiTeamId !==
-        null
-    ) {
-      const results =
-        await Promise.allSettled([
-          fetchFixtureInjuries(
-            providerFixtureId,
-          ),
-
-          fetchFixtureLineups(
-            providerFixtureId,
-          ),
-        ]);
-
-      if (
-        results[0].status ===
-        "fulfilled"
-      ) {
-        injuries =
-          results[0].value;
-      } else {
-        console.log(
-          "API-Football injuries unavailable.",
-        );
-      }
-
-      if (
-        results[1].status ===
-        "fulfilled"
-      ) {
-        lineups =
-          results[1].value;
-      } else {
-        console.log(
-          "API-Football lineups unavailable.",
-        );
-      }
-
-      const evidenceObservedAt =
-        await databaseNow(
-          sql,
-        );
-
-      if (
-        Date.parse(
-          evidenceObservedAt,
-        ) >=
-        Date.parse(
-          kickoffAt,
-        )
-      ) {
-        console.log(
-          "SKIP: structured evidence collection crossed kickoff.",
-        );
-
-        skipped +=
-          1;
-
-        continue;
-      }
-
-      facts.push(
-        ...injuryFacts(
-          injuries,
-          homeApiTeamId,
-          awayApiTeamId,
-          homeTeam,
-          awayTeam,
-          evidenceObservedAt,
-        ),
-      );
-
-      facts.push(
-        ...lineupFacts(
-          lineups,
-          homeApiTeamId,
-          awayApiTeamId,
-          homeTeam,
-          awayTeam,
-          evidenceObservedAt,
-        ),
-      );
-    }
+    console.log(
+      "Provider context: DATABASE ONLY",
+    );
 
     const researchStartedAt =
       await databaseNow(
@@ -1901,14 +1483,6 @@ async function main() {
 
     console.log(
       `Structured facts: ${finalFacts.length}`,
-    );
-
-    console.log(
-      `API injuries: ${injuries.length}`,
-    );
-
-    console.log(
-      `API lineup teams: ${lineups.length}`,
     );
 
     console.log(
@@ -2055,7 +1629,7 @@ if (
      * evaluation but must not be persisted or
      * published as public predictions.
      */
-    
+
 
     console.log("");
     console.log(
@@ -2467,7 +2041,7 @@ if (
     `DeepSeek baselines existing: ${existing}`,
   );
 
-  
+
 
   console.log(
     `Skipped: ${skipped}`,
