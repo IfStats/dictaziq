@@ -987,3 +987,201 @@ export const marketEvidenceSnapshots = pgTable(
     ),
   ],
 );
+
+export const prematchBatches = pgTable(
+  "prematch_batches",
+  {
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    kickoffAt: timestamp(
+      "kickoff_at",
+      { withTimezone: true },
+    ).notNull(),
+
+    lineupCheckAt: timestamp(
+      "lineup_check_at",
+      { withTimezone: true },
+    ).notNull(),
+
+    lineupRetryAt: timestamp(
+      "lineup_retry_at",
+      { withTimezone: true },
+    ).notNull(),
+
+    finalReviewAt: timestamp(
+      "final_review_at",
+      { withTimezone: true },
+    ).notNull(),
+
+    fixtureCount: integer("fixture_count")
+      .notNull()
+      .default(0),
+
+    lineupCheckStatus: text(
+      "lineup_check_status",
+    )
+      .notNull()
+      .default("pending"),
+
+    lineupRetryStatus: text(
+      "lineup_retry_status",
+    )
+      .notNull()
+      .default("pending"),
+
+    finalReviewStatus: text(
+      "final_review_status",
+    )
+      .notNull()
+      .default("pending"),
+
+    lineupCheckCompletedAt: timestamp(
+      "lineup_check_completed_at",
+      { withTimezone: true },
+    ),
+
+    lineupRetryCompletedAt: timestamp(
+      "lineup_retry_completed_at",
+      { withTimezone: true },
+    ),
+
+    finalReviewCompletedAt: timestamp(
+      "final_review_completed_at",
+      { withTimezone: true },
+    ),
+
+    createdAt: timestamp(
+      "created_at",
+      { withTimezone: true },
+    )
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp(
+      "updated_at",
+      { withTimezone: true },
+    )
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex(
+      "prematch_batches_kickoff_unique",
+    ).on(
+      table.kickoffAt,
+    ),
+
+    index(
+      "prematch_batches_final_review_idx",
+    ).on(
+      table.finalReviewAt,
+      table.finalReviewStatus,
+    ),
+
+    index(
+      "prematch_batches_lineup_check_idx",
+    ).on(
+      table.lineupCheckAt,
+      table.lineupCheckStatus,
+    ),
+
+    check(
+      "prematch_batches_fixture_count_check",
+      sql`${table.fixtureCount} >= 0`,
+    ),
+
+    check(
+      "prematch_batches_schedule_order_check",
+      sql`
+        ${table.lineupCheckAt} < ${table.lineupRetryAt}
+        AND ${table.lineupRetryAt} < ${table.finalReviewAt}
+        AND ${table.finalReviewAt} < ${table.kickoffAt}
+      `,
+    ),
+
+    check(
+      "prematch_batches_lineup_check_status_check",
+      sql`${table.lineupCheckStatus} IN (
+        'pending',
+        'running',
+        'completed',
+        'skipped',
+        'failed'
+      )`,
+    ),
+
+    check(
+      "prematch_batches_lineup_retry_status_check",
+      sql`${table.lineupRetryStatus} IN (
+        'pending',
+        'running',
+        'completed',
+        'skipped',
+        'failed'
+      )`,
+    ),
+
+    check(
+      "prematch_batches_final_review_status_check",
+      sql`${table.finalReviewStatus} IN (
+        'pending',
+        'running',
+        'completed',
+        'skipped',
+        'failed'
+      )`,
+    ),
+  ],
+);
+
+export const prematchBatchFixtures = pgTable(
+  "prematch_batch_fixtures",
+  {
+    id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(
+        () => prematchBatches.id,
+        { onDelete: "cascade" },
+      ),
+
+    fixtureId: uuid("fixture_id")
+      .notNull()
+      .references(
+        () => fixtures.id,
+        { onDelete: "restrict" },
+      ),
+
+    createdAt: timestamp(
+      "created_at",
+      { withTimezone: true },
+    )
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex(
+      "prematch_batch_fixtures_fixture_unique",
+    ).on(
+      table.fixtureId,
+    ),
+
+    uniqueIndex(
+      "prematch_batch_fixtures_batch_fixture_unique",
+    ).on(
+      table.batchId,
+      table.fixtureId,
+    ),
+
+    index(
+      "prematch_batch_fixtures_batch_idx",
+    ).on(
+      table.batchId,
+    ),
+  ],
+);
