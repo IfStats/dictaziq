@@ -15,6 +15,13 @@ import {
   canonicalSha256,
 } from "../src/lib/predictions/market-evidence-persistence";
 
+import {
+  fixtureInBatch,
+  loadBatchFixtureIds,
+  requestedBatchId,
+} from "../src/lib/prematch/batch-scope";
+
+
 const RUNNER_VERSION =
   "dictaziq-prematch-gpt-monitor-v0.3";
 
@@ -1634,6 +1641,17 @@ async function main() {
       getDatabaseUrl(),
     );
 
+  const batchId =
+    requestedBatchId();
+
+  const batchFixtureIds =
+    batchId === null
+      ? null
+      : await loadBatchFixtureIds(
+          sql,
+          batchId,
+        );
+
   const runStartedAt =
     await databaseNow(
       sql,
@@ -1817,16 +1835,39 @@ async function main() {
         fixture.provider_id
     `;
 
+  const scopedRows =
+    batchFixtureIds === null
+      ? rows
+      : rows.filter(
+          (
+            row,
+          ) =>
+            fixtureInBatch(
+              batchFixtureIds,
+              String(
+                row.fixture_id,
+              ),
+            ),
+        );
+
   const candidates =
     limit === null
-      ? rows
-      : rows.slice(
+      ? scopedRows
+      : scopedRows.slice(
           0,
           limit,
         );
 
   console.log(
     `Authoritative fixtures in monitoring window: ${rows.length}`,
+  );
+
+  console.log(
+    `Batch scope: ${batchId ?? "ALL"}`,
+  );
+
+  console.log(
+    `Batch fixtures eligible in monitoring window: ${scopedRows.length}`,
   );
 
   console.log(
