@@ -305,6 +305,52 @@ function bttsLabel(
   }
 }
 
+type DeepSeekMarket = {
+  selection: "yes" | "no";
+  confidence: string | null;
+  evidenceGrade: string | null;
+};
+
+function deepSeekMarket(
+  value: unknown,
+): DeepSeekMarket | null {
+  const market =
+    asRecord(value);
+
+  const selection =
+    text(
+      market.selection,
+    );
+
+  if (
+    selection !== "yes" &&
+    selection !== "no"
+  ) {
+    return null;
+  }
+
+  return {
+    selection,
+    confidence:
+      text(
+        market.confidence,
+      ),
+    evidenceGrade:
+      text(
+        market.evidenceGrade,
+      ),
+  };
+}
+
+function goalsMarketLabel(
+  threshold: "1.5" | "2.5",
+  selection: "yes" | "no",
+): string {
+  return selection === "yes"
+    ? `Over ${threshold}`
+    : `Under ${threshold}`;
+}
+
 function TeamCrest({
   logoUrl,
   name,
@@ -771,19 +817,20 @@ export default async function TodayPredictions({
                   deepseek.evidenceGrade,
                 );
 
-              const deepseekGoals =
-                goalsLabel(
-                  text(
-                    deepseek.goalsView,
-                  ),
-                );
+              const deepseekOver15 =
+               deepSeekMarket(
+              deepseek.over15,
+               );
 
-              const deepseekBtts =
-                bttsLabel(
-                  text(
-                    deepseek.bttsView,
-                  ),
-                );
+              const deepseekOver25 =
+               deepSeekMarket(
+               deepseek.over25,
+             );
+
+            const deepseekBttsMarket =
+             deepSeekMarket(
+               deepseek.btts,
+            );
 
               const marketEvidence =
                 asRecord(
@@ -1092,67 +1139,127 @@ export default async function TodayPredictions({
                       )}
 
                       {deepseekForecast && (
-                        <div className="rounded-2xl border border-indigo-500/20 bg-indigo-950/20 p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-xs font-black uppercase tracking-wider text-indigo-300">
-                              DeepSeek AI Forecast
-                            </p>
+  <div className="rounded-2xl border border-indigo-500/20 bg-indigo-950/20 p-4">
+    <div className="flex items-center justify-between gap-3">
+      <p className="text-xs font-black uppercase tracking-wider text-indigo-300">
+        DeepSeek AI Forecast
+      </p>
 
-                            {deepseekGrade && (
-                              <span className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-black text-indigo-200">
-                                Evidence {
-                                  deepseekGrade
-                                }
-                              </span>
-                            )}
-                          </div>
+      {deepseekGrade && (
+        <span className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-black text-indigo-200">
+          Evidence {deepseekGrade}
+        </span>
+      )}
+    </div>
 
-                          <p className="mt-3 text-xl font-black tracking-tight text-indigo-200">
-                            {
-                              forecastLabel(
-                                deepseekForecast,
-                                homeName,
-                                awayName,
-                              )
-                            }
-                          </p>
+    <p className="mt-3 text-xl font-black tracking-tight text-indigo-200">
+      {forecastLabel(
+        deepseekForecast,
+        homeName,
+        awayName,
+      )}
+    </p>
 
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {deepseekConfidence && (
-                              <span className="rounded-full border border-white/5 bg-slate-950/65 px-3 py-2 text-xs font-bold text-slate-300">
-                                Confidence:{" "}
-                                {
-                                  titleCase(
-                                    deepseekConfidence,
-                                  )
-                                }
-                              </span>
-                            )}
+    {deepseekConfidence && (
+      <div className="mt-3">
+        <span className="rounded-full border border-white/5 bg-slate-950/65 px-3 py-2 text-xs font-bold text-slate-300">
+          Result Confidence:{" "}
+          {titleCase(
+            deepseekConfidence,
+          )}
+        </span>
+      </div>
+    )}
 
-                            {deepseekGoals && (
-                              <span className="rounded-full border border-white/5 bg-slate-950/65 px-3 py-2 text-xs font-bold text-slate-300">
-                                {
-                                  deepseekGoals
-                                }
-                              </span>
-                            )}
+    <div className="mt-4 grid gap-2 sm:grid-cols-3">
+      {deepseekOver15 && (
+        <div className="rounded-xl border border-white/5 bg-slate-950/65 p-3">
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+            Goals 1.5
+          </p>
 
-                            {deepseekBtts && (
-                              <span className="rounded-full border border-white/5 bg-slate-950/65 px-3 py-2 text-xs font-bold text-slate-300">
-                                {
-                                  deepseekBtts
-                                }
-                              </span>
-                            )}
-                          </div>
+          <p className="mt-2 text-sm font-black text-indigo-100">
+            {goalsMarketLabel(
+              "1.5",
+              deepseekOver15.selection,
+            )}
+          </p>
 
-                          <p className="mt-3 text-[11px] leading-5 text-slate-500">
-                            Independent DeepSeek analysis using available
-                            DictazIQ and API-Football pre-match evidence.
-                          </p>
-                        </div>
-                      )}
+          <p className="mt-2 text-[10px] leading-4 text-slate-500">
+            {deepseekOver15.confidence
+              ? titleCase(
+                  deepseekOver15.confidence,
+                )
+              : "—"}
+            {" · "}
+            Evidence{" "}
+            {deepseekOver15.evidenceGrade ??
+              "—"}
+          </p>
+        </div>
+      )}
 
+      {deepseekOver25 && (
+        <div className="rounded-xl border border-white/5 bg-slate-950/65 p-3">
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+            Goals 2.5
+          </p>
+
+          <p className="mt-2 text-sm font-black text-indigo-100">
+            {goalsMarketLabel(
+              "2.5",
+              deepseekOver25.selection,
+            )}
+          </p>
+
+          <p className="mt-2 text-[10px] leading-4 text-slate-500">
+            {deepseekOver25.confidence
+              ? titleCase(
+                  deepseekOver25.confidence,
+                )
+              : "—"}
+            {" · "}
+            Evidence{" "}
+            {deepseekOver25.evidenceGrade ??
+              "—"}
+          </p>
+        </div>
+      )}
+
+      {deepseekBttsMarket && (
+        <div className="rounded-xl border border-white/5 bg-slate-950/65 p-3">
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+            BTTS
+          </p>
+
+          <p className="mt-2 text-sm font-black text-indigo-100">
+            {deepseekBttsMarket.selection ===
+            "yes"
+              ? "BTTS — Yes"
+              : "BTTS — No"}
+          </p>
+
+          <p className="mt-2 text-[10px] leading-4 text-slate-500">
+            {deepseekBttsMarket.confidence
+              ? titleCase(
+                  deepseekBttsMarket.confidence,
+                )
+              : "—"}
+            {" · "}
+            Evidence{" "}
+            {deepseekBttsMarket.evidenceGrade ??
+              "—"}
+          </p>
+        </div>
+      )}
+    </div>
+
+    <p className="mt-3 text-[11px] leading-5 text-slate-500">
+      Independent DeepSeek analysis using available DictazIQ and
+      API-Football pre-match evidence.
+    </p>
+  </div>
+)}
                       <div className="flex items-end justify-between gap-4 border-t border-white/10 pt-4">
                         <p className="text-xs text-slate-500">
                           {hasBaseline ? (
