@@ -232,7 +232,6 @@ function titleCase(
         character.toUpperCase(),
     );
 }
-
 function forecastLabel(
   selection: string | null,
   home: string,
@@ -382,7 +381,6 @@ function TeamCrest({
     </div>
   );
 }
-
 function statusLabel(
   value: string,
 ): string {
@@ -574,13 +572,22 @@ Promise<Row[]> {
           AND prediction.published_at
             IS NOT NULL
 
-          AND model.version =
-            'dictaziq-deepseek-research-prediction-v0.2'
+          AND model.version IN (
+  'dictaziq-deepseek-research-prediction-v0.2',
+  'dictaziq-deepseek-research-prediction-v0.1'
+)
 
-        ORDER BY
-          prediction.published_at DESC,
-          prediction.generated_at DESC,
-          prediction.id DESC
+     ORDER BY
+     CASE
+    WHEN model.version =
+      'dictaziq-deepseek-research-prediction-v0.2'
+    THEN 0
+    ELSE 1
+  END,
+
+  prediction.published_at DESC,
+  prediction.generated_at DESC,
+  prediction.id DESC
 
         LIMIT 1
       ) AS deepseek
