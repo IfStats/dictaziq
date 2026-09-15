@@ -814,6 +814,29 @@ function buildStages(
     },
 
     {
+  name:
+    "Ingest authoritative production results",
+
+  script:
+    "scripts/ingest-real-forecast-results-v0.3.ts",
+
+  args: [
+    config.date,
+
+    ...(
+      write
+        ? [
+            "--persist",
+          ]
+        : []
+    ),
+  ],
+
+  retryTransient:
+    true,
+  },
+
+    {
       name:
         "Settle authoritative baseline forecasts",
 
