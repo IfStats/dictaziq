@@ -31,7 +31,7 @@ const OPENAI_MODEL =
   "dictaziq-gpt-research-prediction-v0.2";
 
 const DEEPSEEK_MODEL =
-  "dictaziq-deepseek-research-prediction-v0.1";
+  "dictaziq-deepseek-research-prediction-v0.2";
 
 type JsonObject =
   Record<string, unknown>;

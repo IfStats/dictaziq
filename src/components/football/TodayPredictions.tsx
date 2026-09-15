@@ -529,7 +529,7 @@ Promise<Row[]> {
             IS NOT NULL
 
           AND model.version =
-            'dictaziq-deepseek-research-prediction-v0.1'
+            'dictaziq-deepseek-research-prediction-v0.2'
 
         ORDER BY
           prediction.published_at DESC,

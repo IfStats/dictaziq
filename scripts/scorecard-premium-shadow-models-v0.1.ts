@@ -16,7 +16,7 @@ const SCORECARD_VERSION =
 
 const MODEL_VERSIONS = [
   "dictaziq-gpt-research-prediction-v0.2",
-  "dictaziq-deepseek-research-prediction-v0.1",
+  "dictaziq-deepseek-research-prediction-v0.2",
   "dictaziq-astra-research-prediction-v0.1",
 ] as const;
 
@@ -240,7 +240,7 @@ function modelLabel(
 
   if (
     version ===
-    "dictaziq-deepseek-research-prediction-v0.1"
+    "dictaziq-deepseek-research-prediction-v0.2"
   ) {
     return "DEEPSEEK";
   }

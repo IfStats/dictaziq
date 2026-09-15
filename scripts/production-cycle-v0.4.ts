@@ -781,7 +781,7 @@ function buildStages(
         "Generate independent DeepSeek predictions",
 
       script:
-        "scripts/generate-real-deepseek-predictions-v0.1.ts",
+        "scripts/generate-real-deepseek-predictions-v0.2.ts",
 
       args:
         researchArgs,
