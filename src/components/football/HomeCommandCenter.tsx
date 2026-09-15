@@ -379,6 +379,15 @@ Promise<DashboardData> {
               'halftime'
             )
 
+        AND (
+         fixture.kickoff_at
+         AT TIME ZONE 'UTC'
+         )::date =
+        (
+         clock_timestamp()
+         AT TIME ZONE 'UTC'
+         )::date
+
         ORDER BY
           fixture.kickoff_at,
           fixture.provider_id
