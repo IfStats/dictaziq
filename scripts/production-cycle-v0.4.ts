@@ -52,6 +52,7 @@ type StageOutcome =
 type ParsedArgs = {
   date: string;
   execute: boolean;
+  forecastOnly: boolean;
   gptLimit:
     number |
     null;
@@ -158,6 +159,9 @@ ParsedArgs {
   let execute =
     false;
 
+  let forecastOnly =
+    false;
+
   let gptLimit:
     number |
     null =
@@ -191,6 +195,16 @@ ParsedArgs {
         true;
 
       continue;
+    }
+
+    if (
+       argument ===
+       "--forecast-only"
+    ) {
+       forecastOnly =
+         true;
+
+       continue;
     }
 
     if (
@@ -249,6 +263,7 @@ ParsedArgs {
   return {
     date,
     execute,
+    forecastOnly,
     gptLimit,
     monitorLimit,
     monitorWindowMinutes,
@@ -689,7 +704,7 @@ function buildStages(
     ),
   ];
 
-  return [
+  const stages: Stage[] = [
     {
       name:
         "Database connectivity",
@@ -887,8 +902,16 @@ function buildStages(
         config.date,
       ],
     },
-  ];
+ ];
+
+return config.forecastOnly
+  ? stages.slice(
+      0,
+      7,
+    )
+  : stages;
 }
+
 
 function verifyRequiredScripts(
   stages: Stage[],
